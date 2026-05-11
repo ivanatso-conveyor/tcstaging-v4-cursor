@@ -5,7 +5,7 @@
       "name": "trust-center-dev",
       "runtimeExecutable": "bash",
       "runtimeArgs": ["-c", "cd trust-center && npm run dev"],
-      "port": 5173
+      "port": 5175
     }
   ]
 }

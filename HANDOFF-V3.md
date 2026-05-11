@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173/designerstaging`.
+Open `http://localhost:5175/designerstaging`.
 
 **Build for production:**
 ```bash

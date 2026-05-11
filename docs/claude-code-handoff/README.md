@@ -22,7 +22,7 @@ Use this folder when you continue this work in **Claude Code** (Anthropic’s te
    cd trust-center && npm run dev
    ```
 
-4. In the browser, open **`/designerstaging`** on the host and port Vite shows (often `http://localhost:5173/designerstaging`).
+4. In the browser, open **`/designerstaging`** on the host and port Vite shows (this repo defaults to `http://localhost:5175/designerstaging` in `vite.config.ts`).
 
 5. In Claude Code, open the **same repo root** as the project folder, then ask Claude to read:
 

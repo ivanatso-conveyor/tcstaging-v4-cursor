@@ -43,7 +43,7 @@ This is a hard rule. **No raw hex colors, font sizes, or spacings in JSX.**
 ```bash
 cd trust-center
 npm install   # first time only
-npm run dev   # → http://localhost:5173/designerstaging
+npm run dev   # → http://localhost:5175/designerstaging
 npm run build # → trust-center/dist/
 ```
 

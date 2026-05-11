@@ -19,6 +19,8 @@ export default defineConfig({
   base: normalizeBase(process.env.VITE_BASE_PATH),
   plugins: [react(), tailwindcss()],
   server: {
+    /** Dev server port (fixed so this prototype avoids Vite’s default 5173 when that port is busy). */
+    port: 5175,
     // Avoid stale JS/CSS during iteration (helps when the browser skips a hard refresh).
     headers: { 'Cache-Control': 'no-store' },
     fs: {

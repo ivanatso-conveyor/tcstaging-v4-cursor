@@ -24,7 +24,7 @@ A V2 of this prototype is still active in a separate folder; this V3 copy is for
    npm run dev
    ```
 
-4. Open the URL Vite prints (usually `http://localhost:5173/`) and go to:
+4. Open the URL Vite prints (usually `http://localhost:5175/`) and go to:
 
    **`/designerstaging`**
 

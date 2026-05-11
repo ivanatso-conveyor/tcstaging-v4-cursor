@@ -652,7 +652,7 @@ trust-center/
 
 ### What's Running
 
-The dev server is live at **http://localhost:5173/designerstaging**. Open it in your browser now to review.
+The dev server is live at **http://localhost:5175/designerstaging**. Open it in your browser now to review.
 
 **Please take a look and tell me what needs adjustment.** I'll compare section by section against the Figma screenshots and refine from your feedback.
 
@@ -773,7 +773,7 @@ Now let me verify the build is still clean.
 
 ## Assistant
 
-Clean build. The dev server at `http://localhost:5173/designerstaging` should have hot-reloaded with all the changes. Here's exactly what I updated:
+Clean build. The dev server at `http://localhost:5175/designerstaging` should have hot-reloaded with all the changes. Here's exactly what I updated:
 
 ---
 
@@ -802,7 +802,7 @@ Clean build. The dev server at `http://localhost:5173/designerstaging` should ha
 
 ---
 
-**Please refresh `http://localhost:5173/designerstaging` in your browser and let me know how it looks compared to the Figma.** The banner, nav, identity, and badges should now be much closer to pixel-perfect. I'll continue refining based on your feedback.
+**Please refresh `http://localhost:5175/designerstaging` in your browser and let me know how it looks compared to the Figma.** The banner, nav, identity, and badges should now be much closer to pixel-perfect. I'll continue refining based on your feedback.
 
 ---
 
@@ -938,7 +938,7 @@ Clean build. The dev server should have hot-reloaded. Here's what changed:
 
 All images are served locally from `public/assets/badges/` — no external URLs, so they'll always load. Each badge shows the SVG at 60×60 with the name underneath, and they have a subtle hover scale effect.
 
-**Refresh `http://localhost:5173/designerstaging`** — the Badges section should now show all 8 certification images clearly. 
+**Refresh `http://localhost:5175/designerstaging`** — the Badges section should now show all 8 certification images clearly. 
 
 For the **banner image** and **Modern Landing / Simple Form thumbnails**, if you can export those from Figma and drop them in the same way (`public/assets/banner.png` and `public/assets/views/modern-landing.png` / `simple-form.png`), I'll wire those up immediately too.
 
@@ -1194,7 +1194,7 @@ Here is what was going on and what we changed.
 ### How to verify quickly
 
 1. Run the app from **`trust-center`**: `npm run dev`.
-2. Open **`http://localhost:5173/trust-center`** (or whatever port Vite prints).
+2. Open **`http://localhost:5175/trust-center`** (or whatever port Vite prints).
 3. Scroll below the company intro until you see the **Badges** heading; you should see eight 60×60 images.
 
 If you are on **`/designerstaging`**, open the right **Layout** panel and make sure **Badges** has the eye in the “on” state (darker icon).
@@ -1288,7 +1288,7 @@ In **`trust-center`** you should see:
 - **Eight** seals with labels like **CMMC, EcoVadis, HDS, ISAE 3402…** (from `src/assets/badges`).
 - Stats pill **“8 Certifications”** (from `IdentitySection`).
 
-If you still see six generic circles, the dev server that’s bound to **5173** is almost certainly the **other** project, or an old tab pointed at it.
+If you still see six generic circles, the dev server that’s bound to **5175** is almost certainly the **other** project, or an old tab pointed at it.
 
 **Quick check in DevTools:** Inspect the certifications block. On the real `trust-center` build the wrapper has  
 `data-trust-section="certification-seals"`. If that attribute is missing, you’re not on this app’s bundle.
@@ -1308,7 +1308,7 @@ cd "/Users/ivanatso/Desktop/Cursor Repo/staging-prototype-v1/trust-center"
 npm run dev:clean
 ```
 
-Then open the URL Vite prints (e.g. `http://localhost:5173/designerstaging` **or another port** if 5173 is taken) and use a **hard refresh** (Chrome: **Cmd+Shift+R**).
+Then open the URL Vite prints (e.g. `http://localhost:5175/designerstaging` **or another port** if 5173 is taken) and use a **hard refresh** (Chrome: **Cmd+Shift+R**).
 
 If **`Trust Center Above the Fold Lovable`** is also running, stop it or note its port so you don’t confuse the two.
 
@@ -1455,7 +1455,7 @@ Run from `trust-center` with `npm run dev` or `npm run dev:clean` if you want to
 ## User
 
 <user_query>
-Can you tell me what's going on? Please explain it to me like I'm five. I am not an engineer, but I cannot see any changes being made in the preview in my localhost:5173, what is happening?
+Can you tell me what's going on? Please explain it to me like I'm five. I am not an engineer, but I cannot see any changes being made in the preview in my localhost:5175, what is happening?
 </user_query>
 
 ---
@@ -1472,7 +1472,7 @@ Let me check what's actually running on your computer right now.
 
 Here is what's happening, explained simply:
 
-**Think of it like a restaurant kitchen.** You (the browser at `localhost:5173`) placed an order a while ago. The kitchen (the dev server, process #90081) cooked your food and served it. But since then, we've been rewriting the recipe (editing the code files). The problem is: **that kitchen started before we made our changes**, and even though Vite usually auto-updates, we deleted and replaced so many files (the banner, the icons, the assets file) that the kitchen got confused and stopped sending updates to your plate.
+**Think of it like a restaurant kitchen.** You (the browser at `localhost:5175`) placed an order a while ago. The kitchen (the dev server, process #90081) cooked your food and served it. But since then, we've been rewriting the recipe (editing the code files). The problem is: **that kitchen started before we made our changes**, and even though Vite usually auto-updates, we deleted and replaced so many files (the banner, the icons, the assets file) that the kitchen got confused and stopped sending updates to your plate.
 
 **The fix is simple: restart the kitchen.** Let me kill the old server and start a fresh one for you.
 
@@ -1488,7 +1488,7 @@ The fresh server is now running. Here's what happened and what to do:
 
 **In plain English:**
 
-1. **You had an old server running** on `localhost:5173` that was started before I made any of the recent changes (the banner image, the logo, the icons, the badge fixes). That old server was serving the **old** code.
+1. **You had an old server running** on `localhost:5175` that was started before I made any of the recent changes (the banner image, the logo, the icons, the badge fixes). That old server was serving the **old** code.
 
 2. **Vite (the tool that runs your app) usually auto-updates** when files change. But we deleted and replaced so many files at once (removed the old `assets.ts`, added new image files, rewrote multiple components) that the auto-update broke silently. Your browser kept showing the old version.
 
@@ -1498,7 +1498,7 @@ The fresh server is now running. Here's what happened and what to do:
 
 **What you need to do now:**
 
-1. Go to your browser tab at **`http://localhost:5173/designerstaging`**
+1. Go to your browser tab at **`http://localhost:5175/designerstaging`**
 2. **Hard refresh** the page: press **Cmd + Shift + R** (hold all three keys at once)
 3. You should now see:
    - The **real banner image** (purple gradient with decorative elements)
@@ -1507,7 +1507,7 @@ The fresh server is now running. Here's what happened and what to do:
    - The **Certifications** section with your eight badge SVGs
    - **Modern Landing** and **Simple form** thumbnails in the right panel under "Public View"
 
-If the page looks blank or weird after the hard refresh, try closing the tab completely and opening a fresh one at `http://localhost:5173/designerstaging`.
+If the page looks blank or weird after the hard refresh, try closing the tab completely and opening a fresh one at `http://localhost:5175/designerstaging`.
 
 ---
 
@@ -1717,12 +1717,12 @@ The Vite dev server should hot-reload automatically. If not, hit **Cmd+Shift+R**
 
 <user_query>
 Browser error to investigate:
-URL: http://localhost:5173/designerstaging
-Local port: 5173
+URL: http://localhost:5175/designerstaging
+Local port: 5175
 Category: Connection failure
 Error: ERR_CONNECTION_REFUSED
 Details: Error Code: -102
-URL: http://localhost:5173/designerstaging
+URL: http://localhost:5175/designerstaging
 
 Please help me figure out the most likely cause and the fastest next checks.
 </user_query>
@@ -1737,7 +1737,7 @@ The server isn't running — it was killed earlier. Let me start it back up.
 
 ## Assistant
 
-The dev server is back up on **`http://localhost:5173/`**. Reload `http://localhost:5173/designerstaging` in your browser and it should work now. The server had been killed during our earlier restart and wasn't started again after the icon changes.
+The dev server is back up on **`http://localhost:5175/`**. Reload `http://localhost:5175/designerstaging` in your browser and it should work now. The server had been killed during our earlier restart and wasn't started again after the icon changes.
 
 ---
 
@@ -6455,7 +6455,7 @@ can you restart the vite dev server? How do I do this?
 
 ## Assistant
 
-Stopping the process on port 5173 and starting the dev server again.
+Stopping the process on port 5175 and starting the dev server again.
 
 [REDACTED]
 
@@ -6463,13 +6463,13 @@ Stopping the process on port 5173 and starting the dev server again.
 
 ## Assistant
 
-**Restart is done.** Vite is running again at **http://localhost:5173/** with your current env (including `.env.local`).
+**Restart is done.** Vite is running again at **http://localhost:5175/** with your current env (including `.env.local`).
 
 ---
 
 ### How to restart it yourself next time
 
-1. **Focus the terminal** where `npm run dev` is running (the one that shows the Vite “Local: http://localhost:5173/” line).
+1. **Focus the terminal** where `npm run dev` is running (the one that shows the Vite “Local: http://localhost:5175/” line).
 2. **Stop the server:** **Ctrl+C** (Mac/Windows/Linux).
 3. **Start it again:**
    ```bash
@@ -6479,9 +6479,9 @@ Stopping the process on port 5173 and starting the dev server again.
 
 **Why restart?** Vite reads `.env` / `.env.local` when the process **starts**. Changing `VITE_*` values usually needs a full restart (not only saving the file).
 
-**Optional:** If something is stuck on port 5173, you can free it then start again:
+**Optional:** If something is stuck on port 5175, you can free it then start again:
 ```bash
-lsof -ti :5173 | xargs kill -9
+lsof -ti :5175 | xargs kill -9
 cd trust-center && npm run dev
 ```
 
@@ -6579,7 +6579,7 @@ How do I restart the `npm run dev`?
 
 ### Restart `npm run dev`
 
-1. **Go to the terminal** where Vite is running (you’ll see lines like `VITE v…` and `Local: http://localhost:5173/`).
+1. **Go to the terminal** where Vite is running (you’ll see lines like `VITE v…` and `Local: http://localhost:5175/`).
 2. **Stop it:** press **Ctrl+C** (Mac or Windows).
 3. **Start again:**
    ```bash
@@ -6590,11 +6590,11 @@ How do I restart the `npm run dev`?
 If you’re not sure which terminal it is, you can stop anything on the default port and start fresh:
 
 ```bash
-lsof -ti :5173 | xargs kill -9
+lsof -ti :5175 | xargs kill -9
 cd trust-center && npm run dev
 ```
 
-(Use port **5173** only if that’s what your Vite output shows.)
+(Use port **5175** only if that’s what your Vite output shows.)
 
 [REDACTED]
 
@@ -6696,7 +6696,7 @@ The **secret** key (`sk_...`) is only for **server-side** calls (Search API, etc
    In dev, open the browser **console**: if the token is missing, you should now see a warning starting with **`[Logo.dev] VITE_LOGO_DEV_TOKEN is missing`**.
 
 2. **Logo.dev “Allowed domains only”**  
-   If that’s **on** in the [Logo.dev API Keys](https://www.logo.dev/dashboard/api-keys) dashboard, requests from **`http://localhost:5173`** can be blocked unless you add **`localhost`** (and often **`127.0.0.1`**) to the allowlist.  
+   If that’s **on** in the [Logo.dev API Keys](https://www.logo.dev/dashboard/api-keys) dashboard, requests from **`http://localhost:5175`** can be blocked unless you add **`localhost`** (and often **`127.0.0.1`**) to the allowlist.  
    Docs: [API keys – domain restrictions](https://docs.logo.dev/platform/api-keys).
 
 3. **Referer not sent**  
@@ -6973,8 +6973,8 @@ can you help me restart the dev server? I have rotated out the key and need to c
 
 Restart is complete.
 
-- Anything that was using **port 5173** was stopped.
-- **Vite** is running again from **`trust-center`** at **http://localhost:5173/**
+- Anything that was using **port 5175** was stopped.
+- **Vite** is running again from **`trust-center`** at **http://localhost:5175/**
 
 Because you rotated the key in **`.env.local`**, do a **hard refresh** in the browser (e.g. **Cmd+Shift+R** on Mac) so you’re not seeing a cached bundle. Then check Subprocessors / Trusted by for logos.
 
@@ -6988,12 +6988,12 @@ If anything still looks off, open DevTools → **Console** and look for **`[Logo
 
 <user_query>
 Browser error to investigate:
-URL: http://localhost:5173/
-Local port: 5173
+URL: http://localhost:5175/
+Local port: 5175
 Category: Connection failure
 Error: ERR_CONNECTION_REFUSED
 Details: Error Code: -102
-URL: http://localhost:5173/
+URL: http://localhost:5175/
 
 Please help me figure out the most likely cause and the fastest next checks.
 </user_query>
@@ -7014,7 +7014,7 @@ Please help me figure out the most likely cause and the fastest next checks.
 
 ## Assistant
 
-Nothing is listening on port 5173 — connection refused means no process accepted the connection. A Node process is listening on 5174 (likely another Vite instance or app).
+Nothing is listening on port 5175 — connection refused means no process accepted the connection. A Node process is listening on 5174 (likely another Vite instance or app).
 
 [REDACTED]
 
@@ -7025,21 +7025,21 @@ Nothing is listening on port 5173 — connection refused means no process accept
 Here’s the distilled picture:
 
 ### Most likely cause
-**Nothing was bound to port 5173.** `ERR_CONNECTION_REFUSED` means the TCP connect to `127.0.0.1:5173` had **no listener** — almost always because **Vite wasn’t running**, it had **crashed**, or you’d started it earlier and it had **exited** (e.g. terminal closed, Ctrl+C, or another error).
+**Nothing was bound to port 5175.** `ERR_CONNECTION_REFUSED` means the TCP connect to `127.0.0.1:5175` had **no listener** — almost always because **Vite wasn’t running**, it had **crashed**, or you’d started it earlier and it had **exited** (e.g. terminal closed, Ctrl+C, or another error).
 
-A separate detail: something **is** listening on **5174** on your machine. If Vite ever prints `Local: http://localhost:5174/` (because 5173 was taken), opening **5173** would also refuse until you use that URL or free 5173.
+A separate detail: something **is** listening on **5174** on your machine. If Vite ever prints `Local: http://localhost:5174/` (because 5173 was taken), opening the wrong localhost port would refuse until you use the URL Vite printed or free that port.
 
 ### Fast checks (next time, in order)
 1. **Terminal that runs `npm run dev`** — confirm it’s still open and shows **`ready`** and the **`Local: http://localhost:…`** line (that URL is authoritative).
-2. **`lsof -i :5173`** (in a terminal) — if it prints nothing, **5173 has no server** → start dev again.
+2. **`lsof -i :5175`** (in a terminal) — if it prints nothing, **5173 has no server** → start dev again.
 3. If 5173 is empty but you still have a dev app, try **`http://localhost:5174/`** (or whatever port Vite printed).
 
 ### What I did just now
-I started the trust-center dev server with **`vite --port 5173 --strictPort`**, and it reported **ready at `http://localhost:5173/`**. Try that URL again in the browser (hard refresh if needed).
+I started the trust-center dev server with **`vite --port 5175 --strictPort`**, and it reported **ready at `http://localhost:5175/`**. Try that URL again in the browser (hard refresh if needed).
 
 ---
 
-**Tip:** Keep **one** terminal tab dedicated to `npm run dev` and don’t close it; if the process dies, **5173** goes away and you’ll see connection refused again.
+**Tip:** Keep **one** terminal tab dedicated to `npm run dev` and don’t close it; if the process dies, **5175** goes away and you’ll see connection refused again.
 
 [REDACTED]
 
@@ -9702,7 +9702,7 @@ Build completed successfully.
 ## User
 
 <user_query>
-Browser error to investigate: URL: http://localhost:5173/designerstaging Local port: 5173 Category: Connection failure Error: ERR_CONNECTION_REFUSED Details: Error Code: -102 URL: http://localhost:5173/designerstaging Please help me figure out the most likely cause and the fastest next checks.
+Browser error to investigate: URL: http://localhost:5175/designerstaging Local port: 5175 Category: Connection failure Error: ERR_CONNECTION_REFUSED Details: Error Code: -102 URL: http://localhost:5175/designerstaging Please help me figure out the most likely cause and the fastest next checks.
 </user_query>
 
 ---
@@ -9729,10 +9729,10 @@ Checking whether the dev server is running and verifying the app route.
 
 ## Assistant
 
-Here’s a tight read on **`ERR_CONNECTION_REFUSED`** for `http://localhost:5173/...`:
+Here’s a tight read on **`ERR_CONNECTION_REFUSED`** for `http://localhost:5175/...`:
 
 ### Most likely cause
-**Nothing is listening on port 5173.** The browser is opening a TCP connection to `127.0.0.1:5173`; if the Vite dev server isn’t running (or exited), the OS refuses the connection — that’s **-102 / connection refused**. It’s not a React/router bug; the request never reaches your app.
+**Nothing is listening on port 5175.** The browser is opening a TCP connection to `127.0.0.1:5175`; if the Vite dev server isn’t running (or exited), the OS refuses the connection — that’s **-102 / connection refused**. It’s not a React/router bug; the request never reaches your app.
 
 ### Fast checks (in order)
 
@@ -9740,22 +9740,22 @@ Here’s a tight read on **`ERR_CONNECTION_REFUSED`** for `http://localhost:5173
    ```bash
    cd "/Users/ivanatso/Desktop/Cursor Repo/staging-prototype-v1/trust-center" && npm run dev
    ```
-   Leave that terminal open. You should see something like `Local: http://localhost:5173/`.
+   Leave that terminal open. You should see something like `Local: http://localhost:5175/`.
 
 2. **Confirm the port** — If 5173 is already in use, Vite may print **`http://localhost:5174/`** (or another port). Use **exactly** the URL Vite prints.
 
 3. **Sanity-check the port** (optional):
    ```bash
-   lsof -i :5173
+   lsof -i :5175
    ```
    You want a `LISTEN` line for `node`/`vite`. If empty, nothing is bound → connection refused is expected.
 
 4. **URL path** — Your app route is **`/designerstaging`** (no hyphen), per `App.tsx`. Wrong path still wouldn’t cause **connection refused**; you’d get a connection **then** a redirect. So fix the server first, then open:
-   `http://localhost:5173/designerstaging`
+   `http://localhost:5175/designerstaging`
 
 ### If it still refuses after `npm run dev`
 - Another process grabbed 5173 — read Vite’s “Local:” line for the real port.  
-- Or run with a fixed port: `npm run dev -- --port 5173 --strictPort` and fix whatever blocks 5173.
+- Or run with a fixed port: `npm run dev -- --port 5175 --strictPort` and fix whatever blocks that port.
 
 **Summary:** **`ERR_CONNECTION_REFUSED` almost always means the dev server isn’t running on that host/port.** Start `npm run dev` in `trust-center` and use the URL Vite prints.
 
@@ -9783,9 +9783,9 @@ The dev server is running.
 
 Vite reported:
 
-**Local: http://localhost:5173/**
+**Local: http://localhost:5175/**
 
-Open **http://localhost:5173/designerstaging** in your browser (or **http://localhost:5173/** — the app redirects unknown paths to the designer).
+Open **http://localhost:5175/designerstaging** in your browser (or **http://localhost:5175/** — the app redirects unknown paths to the designer).
 
 The process is running in the background; leave that terminal job alone while you work. To stop it later, use Ctrl+C in that terminal or end the process from your IDE.
 
@@ -12834,7 +12834,7 @@ Fixing duplicate `id` attributes (section + heading) and verifying Tailwind clas
 Here is what was added and how to use it.
 
 ### New route
-- Open **`/design-system`** on your dev server (for example `http://localhost:5173/design-system`).
+- Open **`/design-system`** on your dev server (for example `http://localhost:5175/design-system`).
 - It is a normal scrollable page (not the fixed three-column shell), so you can use it as a long-form guide.
 
 ### What it contains
@@ -13358,7 +13358,7 @@ Here are step-by-step instructions you can send your teammate. Cursor cannot reo
    ```
 
 4. Leave this terminal window open. Vite prints a **Local** URL, usually:
-   - **`http://localhost:5173`**  
+   - **`http://localhost:5175`**  
    If the port is taken, Vite may use **5174**, **5175**, and so on. They should use whatever URL the terminal shows.
 
 5. Open that URL in **Chrome**, **Safari**, or **Edge**.
@@ -13371,9 +13371,9 @@ All of these are routes in the same app. After `npm run dev`, they append the pa
 
 | What to see | URL (example) |
 |---------------|-----------------|
-| **Designer** (three columns: left nav, Trust Center preview, right settings) | `http://localhost:5173/designerstaging` |
-| **Public Trust Center** (full page, no editor chrome) | `http://localhost:5173/trust-center` |
-| **Design system reference** | `http://localhost:5173/design-system` |
+| **Designer** (three columns: left nav, Trust Center preview, right settings) | `http://localhost:5175/designerstaging` |
+| **Public Trust Center** (full page, no editor chrome) | `http://localhost:5175/trust-center` |
+| **Design system reference** | `http://localhost:5175/design-system` |
 
 If their terminal shows something like `http://localhost:5174`, they replace **`5173`** with that port everywhere.
 
@@ -13421,12 +13421,12 @@ You can paste this block into an email or Slack as-is. If you want, we can add a
 
 <user_query>
 Browser error to investigate:
-URL: http://localhost:5173/trust-center
-Local port: 5173
+URL: http://localhost:5175/trust-center
+Local port: 5175
 Category: Connection failure
 Error: ERR_CONNECTION_REFUSED
 Details: Error Code: -102
-URL: http://localhost:5173/trust-center
+URL: http://localhost:5175/trust-center
 
 Please help me figure out the most likely cause and the fastest next checks.
 </user_query>
@@ -13435,7 +13435,7 @@ Please help me figure out the most likely cause and the fastest next checks.
 
 ## Assistant
 
-**`ERR_CONNECTION_REFUSED` (-102)** means nothing on your machine is accepting connections on **port 5173**. The browser is fine; the usual issue is **no dev server listening** (or it’s on **another port**).
+**`ERR_CONNECTION_REFUSED` (-102)** means nothing on your machine is accepting connections on **port 5175**. The browser is fine; the usual issue is **no dev server listening** (or it’s on **another port**).
 
 ### Most likely cause
 **The Vite dev server isn’t running** in `trust-center`, or it **stopped** (crashed, terminal closed, Ctrl+C). Less often: Vite **started on a different port** because 5173 was busy.
@@ -13447,24 +13447,24 @@ Please help me figure out the most likely cause and the fastest next checks.
    ```bash
    cd /path/to/staging-prototype-v1/trust-center && npm run dev
    ```  
-   Leave that window open. You should see something like `Local: http://localhost:5173/`.
+   Leave that window open. You should see something like `Local: http://localhost:5175/`.
 
 2. **Use the exact URL Vite prints**  
    If it says `5174` or `5175`, open **that** URL (not 5173).
 
 3. **See if anything is listening on 5173** (Mac/Linux):
    ```bash
-   lsof -i :5173
+   lsof -i :5175
    ```  
    No output → nothing bound to 5173 (explains refusal).  
    Windows (PowerShell):
    ```bash
-   netstat -ano | findstr :5173
+   netstat -ano | findstr :5175
    ```
 
 4. **Quick probe** (with server supposedly running):
    ```bash
-   curl -I http://127.0.0.1:5173
+   curl -I http://127.0.0.1:5175
    ```  
    Connection refused → still no listener.
 
@@ -13474,7 +13474,7 @@ Please help me figure out the most likely cause and the fastest next checks.
 ### Not the cause (for this error)
 Wrong **path** like `/trust-center` does not produce connection refused; that would load the app and maybe show a client-side error. Refusal happens **before** HTTP, when **no process** is on that port.
 
-**Summary:** Start (or restart) `npm run dev` in **`trust-center`**, then open the **exact** `Local:` URL from that terminal, with `/trust-center` appended if needed (e.g. `http://localhost:5173/trust-center`).
+**Summary:** Start (or restart) `npm run dev` in **`trust-center`**, then open the **exact** `Local:` URL from that terminal, with `/trust-center` appended if needed (e.g. `http://localhost:5175/trust-center`).
 
 [REDACTED]
 
@@ -13486,11 +13486,11 @@ Wrong **path** like `/trust-center` does not produce connection refused; that wo
 could you try loading the prototypes again? I cant see any of them anymore: 
 	URL (example)
 Designer (three columns: left nav, Trust Center preview, right settings)
-http://localhost:5173/designerstaging
+http://localhost:5175/designerstaging
 Public Trust Center (full page, no editor chrome)
-http://localhost:5173/trust-center
+http://localhost:5175/trust-center
 Design system reference
-http://localhost:5173/design-system
+http://localhost:5175/design-system
 </user_query>
 
 ---
@@ -13573,13 +13573,13 @@ So **`/designerstaging`**, **`/trust-center`**, and **`/design-system`** are val
 
 `npm run dev` was started from **`staging-prototype-v1/trust-center`**, and Vite reported:
 
-- **`Local: http://localhost:5173/`**
+- **`Local: http://localhost:5175/`**
 
 So on **your** machine, if that process is still running, these should work:
 
-- `http://localhost:5173/designerstaging`
-- `http://localhost:5173/trust-center`
-- `http://localhost:5173/design-system`
+- `http://localhost:5175/designerstaging`
+- `http://localhost:5175/trust-center`
+- `http://localhost:5175/design-system`
 
 I cannot reliably open **your** browser or hit **your** localhost from here (the automated HTTP check from this side does not reach your loopback), so “loading the prototypes again” for you means: **you** run the app locally and use those URLs.
 
@@ -13694,7 +13694,7 @@ On **`/trust-center`**, **edit mode is off** (`standalone`), so `TrustCenterEdit
 ### Fix
 In **`TrustCenterEditableRegion.tsx`**, when **`enabled` is false**, children are wrapped in **`<div className={className}>`** so height/layout classes (and other layout classes on other sections) still apply.
 
-After a refresh, **`http://localhost:5173/trust-center`** should show the same **TC Banner Image** as designer mode (unless a **custom** header image is saved in designer, which still overrides via `savedTrustCenterImagery`).
+After a refresh, **`http://localhost:5175/trust-center`** should show the same **TC Banner Image** as designer mode (unless a **custom** header image is saved in designer, which still overrides via `savedTrustCenterImagery`).
 
 [REDACTED]
 
@@ -13762,7 +13762,7 @@ Here is what changed.
 
 With **`standalone === false`**, layout matches the previous behavior: **white** column, **`max-w-[1360px] mx-auto`**, no gray shell and no card wrapper.
 
-Refresh **`http://localhost:5173/trust-center`** to see the gray page, white card, and full-bleed banner inside the card.
+Refresh **`http://localhost:5175/trust-center`** to see the gray page, white card, and full-bleed banner inside the card.
 
 [REDACTED]
 

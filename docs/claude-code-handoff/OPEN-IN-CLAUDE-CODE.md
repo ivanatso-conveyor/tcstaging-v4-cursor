@@ -39,7 +39,7 @@ npm install
 npm run dev
 ```
 
-Use the URL Vite prints (port may not be 5173).
+Use the URL Vite prints (this repo sets port **5175** in `vite.config.ts`; use that unless your terminal shows a different port).
 
 ## 5. Optional: project-level `CLAUDE.md`
 

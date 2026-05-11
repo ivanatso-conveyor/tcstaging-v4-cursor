@@ -367,7 +367,7 @@ Open `/designerstaging` on the Draft tab.
 
 After all three changes, run:
 
-1. `npm run dev` from `trust-center/`. Open `http://localhost:5173/designerstaging`.
+1. `npm run dev` from `trust-center/`. Open `http://localhost:5175/designerstaging`.
 2. Walk through every Acceptance check listed above.
 3. Run `npm run build` to confirm there are no TypeScript errors introduced by the renames or by the diff wiring.
 
