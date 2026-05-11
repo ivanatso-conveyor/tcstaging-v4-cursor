@@ -1,0 +1,196 @@
+# Cursor Rules for Trust Center Prototype
+
+## WHO I AM
+
+I am a product designer, not a developer. I use Figma daily and think in terms of frames, components, auto-layout, and design tokens. I do not have deep coding experience.
+
+Always explain things the way you would to a smart colleague who designs in Figma but has never written production code. Use Figma terminology when it helps (for example: "this is like creating a component variant in Figma" or "think of this like your auto-layout spacing settings").
+
+
+## HOW TO COMMUNICATE
+
+1. Walk through every change step by step. Number your steps. Keep each step short and focused on one action.
+2. Before making any change, tell me what you are about to do and why. After making the change, confirm what happened and what it looks like now.
+3. When something goes wrong, explain the error in plain language first, then explain the fix.
+4. Never use em dashes. Use commas, periods, or line breaks instead.
+5. Avoid jargon without explanation. If you must use a technical term, define it in parentheses the first time. For example: "a prop (a setting you pass into a component to control how it looks or behaves)."
+6. When referencing code, always mention the file name and the section of the UI it affects. For example: "In Sidebar.tsx, the navigation item for Designer..."
+7. If I ask a question that has multiple valid answers, give me your recommendation first, then briefly mention the alternatives.
+
+
+## DESIGN TOKENS AND STYLES
+
+### Token-first approach
+
+Every color, font size, font weight, spacing value, border radius, and shadow should come from shared tokens, not one-off literals in JSX. In this repo, the main product palette is defined in the Tailwind `@theme` block in `trust-center/src/index.css` (CSS variables such as `--color-primary-800` and matching utilities like `bg-primary-100`). Customer-facing Trust Center header and accent colors also use `--brand-primary` and `--brand-accent`, with code defaults in `trust-center/src/constants/brandDefaults.ts`.
+
+Rules:
+- Before adding any style value, check if a matching token already exists.
+- If a matching token exists, use it. Never hardcode raw values like `#0D9488` directly in a component. Reference the token instead.
+- If no matching token exists, create a new one with a clear, descriptive name. Then leave a comment in your response:
+  **"NEW TOKEN CREATED: `--color-link-teal` (#0D9488). I added this because no existing token matched. Let me know if you want to rename it or merge it with an existing one."**
+- Prefer combining similar tokens. For example, if `--color-teal-600` already exists at `#0D9488`, do not create a separate `--color-link-teal` at the same value. Reuse the existing one.
+- Token naming convention: use kebab-case with a category prefix. Categories are:
+  - `color-` for colors
+  - `font-size-` for font sizes
+  - `font-weight-` for font weights
+  - `spacing-` for margins and paddings
+  - `radius-` for border radius
+  - `shadow-` for box shadows
+  - `icon-size-` for icon dimensions
+
+### Two color systems (do not mix these)
+
+This project has two separate color systems:
+
+**Conveyor Product UI colors** are the colors of the app shell (sidebar, top nav, buttons, toggles, links). These are fixed and do not change.
+
+**Customer Brand colors** are set by the customer in the Brand Settings panel. They only apply inside the Trust Center preview area. The Mediacore prototype defaults to primary `#333366` and accent `#292951` (see `brandDefaults.ts`), then the pickers can override them for the session.
+
+Never apply customer brand colors to Conveyor UI elements. Never apply Conveyor UI colors to customer-branded content unless there is no brand override.
+
+
+## COMPONENT ARCHITECTURE
+
+### Component-first approach
+
+Every distinct piece of the UI should be its own component. Think of it like Figma: if you would make it a component in Figma, make it a component in code.
+
+Rules:
+- One component per file.
+- File name matches the component name in PascalCase. For example: `StatPill.tsx`, `SidebarNavItem.tsx`, `CertificationBadge.tsx`.
+- Components go in `src/components/` organized by feature area:
+  - `src/components/layout/` for page-level structure (Sidebar, TopNav, SettingsPanel, MainContent)
+  - `src/components/trust-center/` for Trust Center preview content (HeroBanner, CompanyInfo, CertificationBadges, DocumentsSection, FAQGrid)
+  - `src/components/settings/` for right sidebar settings controls (GoLiveToggle, PublicViewSelector, BrandSettings, LayoutCustomizer)
+  - `src/components/shared/` for reusable pieces (Icon, StatPill, FilterPill, Card, Toggle, ColorPicker)
+- Every component should have a clear, commented description at the top explaining what it does in plain language. For example:
+  ```tsx
+  /**
+   * StatPill
+   * A small rounded chip that shows a count with an icon.
+   * Used in the company info section to display "28 Documents", "57 FAQs", etc.
+   * Figma reference: Trust Center Main Page > Company Info > Stats Row
+   */
+  ```
+- Props should have descriptive names, not abbreviations. Use `iconName` not `ico`. Use `isSelected` not `sel`.
+- Include default values for optional props so the component works out of the box.
+
+### Before creating a new component, always check:
+1. Does a similar component already exist? Can I extend it with a prop instead of making a new one? (Like adding a "variant" prop, similar to Figma component variants.)
+2. Is this piece of UI used in more than one place? If yes, it must be a shared component.
+3. Would this component make sense as a Figma component? If not, it might be too small (just use a styled element) or too large (break it into smaller components).
+
+
+## ICONS
+
+All icons in this project use **Google Material Symbols Outlined** loaded from the Google Fonts CDN. Do not use MUI icons, Lucide, Heroicons, react-icons, or any other icon library.
+
+The icon font must be loaded in the HTML head:
+```html
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0;24,400,0,0" />
+```
+
+Icon parameters: FILL 0, weight 400, grade 0, optical size 20 or 24.
+
+Always use the shared `<Icon>` component (in `src/components/shared/Icon.tsx`) to render icons. Never use a raw `<span class="material-symbols-outlined">` directly in a component.
+
+Default icon color is `#09334E`. Top nav icons are `#FFFFFF`. Interactive/link icons are `#0D9488`.
+
+When adding a new icon to the project, confirm the exact Material Symbol name first. If unsure, search at https://fonts.google.com/icons and filter by "Material Symbols" > "Outlined".
+
+
+## FONTS
+
+The product UI uses **Inter** from Google Fonts. Load it in the HTML head:
+```html
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+```
+
+All font sizes and weights must be defined as tokens. Do not hardcode `font-size: 14px` in a component. Use the token (for example, `--font-size-body` or the Tailwind class mapped to it).
+
+
+## FIGMA REFERENCES
+
+When I mention a Figma frame, layer, or component name, treat it as the source of truth. If the code does not match the Figma reference, the code is wrong.
+
+When building or modifying a component, always note which Figma frame it corresponds to in the component's comment header. For example:
+```tsx
+/**
+ * Figma: Trust Center Vision HQ > Designer Page > Right Sidebar > Brand Settings
+ */
+```
+
+If the Figma MCP is connected, use it to pull design context and screenshots before making changes. Always show me what the Figma design looks like alongside what the code currently produces so I can spot differences.
+
+
+## MEMORY FILE
+
+Maintain a memory file at `MEMORY.md` in the project root. Update it whenever:
+- A significant decision is made (for example, choosing a library or changing the component structure)
+- A new design token is created
+- A bug is found and fixed
+- I give you a preference or correction that should carry forward
+- A Figma frame or node ID is referenced (save the mapping so we do not have to look it up again)
+
+The memory file format should be:
+
+```markdown
+# Project Memory
+
+## Decisions
+- [date] Decision description
+
+## Design Tokens Added
+- [date] `--token-name`: value. Reason it was created.
+
+## Figma References
+- Figma File: Trust Center Vision HQ
+- File Key: U3ZtAQwW5Wz7xQ9RFJejJc
+- Outlined Icons frame: node 471:1869
+- [Add more as discovered]
+
+## Bugs Found and Fixed
+- [date] Description of bug and fix
+
+## My Preferences
+- Do not use em dashes. Use commas, periods, or line breaks instead.
+- Explain things for a product designer, not a developer.
+- Always walk through changes step by step.
+- When a token does not exist, create it and tell me about it.
+- Ask before installing new packages.
+
+## Conversation Notes
+- [Add important context from conversations here]
+```
+
+At the start of every new session, read `MEMORY.md` first before doing anything else.
+
+
+## WORKFLOW
+
+When I ask you to build or change something:
+
+1. **Read MEMORY.md** to check for relevant past decisions or preferences.
+2. **Check Figma** (via MCP if connected) to get the design reference for the area being changed.
+3. **Plan the change** and explain it to me in plain language before writing code.
+4. **Check for existing tokens and components** that might already cover what is needed.
+5. **Make the change**, using tokens and the shared component library.
+6. **Report new tokens** if any were created.
+7. **Update MEMORY.md** with anything worth remembering.
+8. **Show me the result** and compare it to the Figma reference. Ask if it matches.
+
+If at any point you are unsure about a design detail (color, spacing, icon, font), ask me rather than guessing. Say something like: "I am not sure which icon to use for the FAQ category cards. In Figma, can you check node [X] and tell me the icon name?"
+
+
+## THINGS TO NEVER DO
+
+- Never hardcode style values directly in components. Always use tokens.
+- Never use em dashes in any text, comment, or output.
+- Never install a new package without asking me first and explaining why it is needed.
+- Never remove or rename an existing component without telling me first.
+- Never guess at Figma design details. Ask or check the MCP.
+- Never use the old `material-icons` font. Always use `material-symbols-outlined`.
+- Never mix Conveyor UI colors with customer brand colors.
+- Never create a duplicate token when an existing one covers the same value.
+- Never write a component without a comment header that includes the Figma reference.

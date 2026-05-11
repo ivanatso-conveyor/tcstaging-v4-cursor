@@ -1,0 +1,252 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-900: #001B28;
+  --color-primary-800: #204156;
+  --color-primary-700: #47687D;
+  --color-primary-600: #86A3B5;
+  --color-primary-500: #B9C8D2;
+  --color-primary-400: #DEE7EE;
+  --color-primary-300: #EDF3F7;
+  --color-primary-200: #F4F7F9;
+  --color-primary-100: #F9FBFC;
+
+  /** Secondary text — section labels, supporting headings (matches primary-700) */
+  --color-secondary: #47687d;
+
+  /** Quick Summary icon fill — overridden per Trust Center column via `--color-trust-icon` */
+  --color-trust-icon: #292951;
+  /** Fallbacks when Trust Center wrapper is not mounted */
+  --trust-center-header-color: #333366;
+  --trust-center-accent-color: #292951;
+
+  --color-brand-600: #1A9E7A;
+  --color-brand-400: #33C69F;
+  --color-brand-200: #7DE5CA;
+  --color-brand-100: #D4F7ED;
+  /** Light green wash: #33C69F @ 15% — use for live states, success panels */
+  --color-green-bg: rgba(51, 198, 159, 0.15);
+
+  --color-link-400: #0D7DE4;
+  --color-link-100: #E6F3FF;
+  /** Link/0 — lightest link-tint surface (panels, chips) */
+  --color-link-0: #eff6ff;
+
+  --color-purple-600: #604194;
+  --color-purple-500: #7C3AED;
+  --color-purple-400: #8969BD;
+  --color-purple-300: #A78BFA;
+  --color-purple-200: #C8B3E8;
+
+  /** Stat pills, section icons (Conveyor shell, distinct from primary-800) */
+  --color-icon-default: #09334E;
+  /** Trust Center hero strip behind banner image */
+  --color-hero-bg: #1a1040;
+  /** Sticky nav avatar placeholder circle */
+  --color-avatar-bg: #6a6a8f;
+  /** Search dropdown “Ask AI Agent” label and gradient anchors */
+  --color-ai-text: #2D296D;
+
+  --color-failure-400: #F25D54;
+
+  /** Neutral grey scale — Grey/1 light ring; Grey/600 for stronger borders */
+  --color-grey-1: #e5e7eb;
+  --color-grey-600: #6b7280;
+
+  --color-surface: #FFFFFF;
+  --color-bg-default: #F9FBFC;
+  --color-border-default: #DEE7EE;
+
+  /**
+   * Semantic aliases (SearchBar / shadcn-style). Values duplicate primary/surface;
+   * prefer `primary-*` in Trust Center sections when you want the named scale.
+   */
+  --color-border: #dee7ee; /* = primary-400 */
+  --color-background: #ffffff; /* = surface */
+  --color-foreground: #204156; /* = primary-800 */
+  --color-muted: #edf3f7; /* = primary-300 */
+  --color-muted-foreground: #47687d; /* = primary-700 = secondary */
+  --color-popover: #ffffff; /* = surface */
+  --color-popover-foreground: #204156; /* = primary-800 */
+  --color-primary: #204156; /* = primary-800 */
+
+  --font-family-sans: 'Neue Montreal', 'Inter', system-ui, -apple-system, sans-serif;
+
+  /** Designer right panel — Customize Layout row controls (eye, link, drag handle) */
+  --layout-customize-row-icon-size: 10px;
+}
+
+/** SearchBar “All Products” pill — frosted glass */
+.liquid-glass {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.14) 100%
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-glass {
+    transition: none;
+  }
+}
+
+/** Ask AI Agent (StickyNav) — Lovable `working-banner-gradient` animated border */
+@keyframes working-banner-gradient {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.ask-ai-agent-border-glow {
+  background-position: 0% 50%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-ai-agent-border-glow {
+    animation: none !important;
+  }
+}
+
+/**
+ * Right panel → preview focus overlay.
+ * Temporarily activated (via `is-editing-target`) while a right-panel row is
+ * scrolling the preview to the target section. Uses the same translucent
+ * primary tint as the hover overlay in `TrustCenterEditableRegion` so the
+ * section visually matches the established "about to edit" state before the
+ * edit modal opens on top.
+ *
+ * The fade-in is intentionally ~320ms ease-out so the overlay grows in *during*
+ * the smooth scroll rather than flashing on at the pre-scroll position — the
+ * two motions overlap instead of stacking.
+ */
+@keyframes editing-target-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes editing-target-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.is-editing-target {
+  position: relative;
+}
+
+.is-editing-target::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: rgba(71, 104, 125, 0.15);
+  border-radius: inherit;
+  z-index: 10;
+  pointer-events: none;
+  animation: editing-target-in 320ms ease-out both;
+}
+
+/**
+ * Leaving state — swap the fade-in for a fade-out so the highlight dissolves
+ * instead of snapping off. When the modal is opening in parallel, this fade-out
+ * runs under the modal backdrop fade-in and the two motions cancel cleanly.
+ */
+.is-editing-target.is-editing-target--leaving::after {
+  animation: editing-target-out 200ms ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-editing-target::after,
+  .is-editing-target.is-editing-target--leaving::after {
+    animation: none;
+  }
+}
+
+/**
+ * Trust Center modal enter animations.
+ * - Backdrop fades in (applied via `tc-modal-backdrop-enter` on TrustCenterModalBackdrop).
+ * - Any `[role="dialog"][aria-modal="true"]` inside Trust Center fades + scales in
+ *   so the modal resolves smoothly after the scroll instead of popping.
+ * Both are ~180ms to stay in sync with the highlight fade-in window.
+ */
+@keyframes tc-modal-backdrop-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tc-modal-dialog-enter {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.tc-modal-backdrop-enter {
+  animation: tc-modal-backdrop-enter 180ms ease-out both;
+}
+
+[role="dialog"][aria-modal="true"] {
+  animation: tc-modal-dialog-enter 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-modal-backdrop-enter,
+  [role="dialog"][aria-modal="true"] {
+    animation: none;
+  }
+}
+
+/**
+ * Draft-started toast: fades in, holds, fades out.
+ * Triggered when a draft auto-creates from the user's first stageable edit.
+ */
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translate(-50%, -8px); }
+  10% { opacity: 1; transform: translate(-50%, 0); }
+  85% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -4px); }
+}
+
+/** Font Awesome row icons in Customize Layout — size follows --layout-customize-row-icon-size */
+.right-panel-layout-row-icon {
+  display: block;
+  width: var(--layout-customize-row-icon-size);
+  height: var(--layout-customize-row-icon-size);
+  max-width: var(--layout-customize-row-icon-size);
+  max-height: var(--layout-customize-row-icon-size);
+  flex-shrink: 0;
+}
+.right-panel-layout-row-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@layer base {
+  /** Fill the viewport so designer shell `h-full` / flex chains resolve (avoids clipped side rails). */
+  html {
+    height: 100%;
+    min-height: 100%;
+  }
+
+  body {
+    height: 100%;
+    min-height: 100%;
+    margin: 0;
+    font-family: var(--font-family-sans);
+    color: var(--color-primary-800);
+    background: var(--color-bg-default);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #root {
+    height: 100%;
+    min-height: 100%;
+  }
+}

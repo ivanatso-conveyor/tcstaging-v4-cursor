@@ -1,0 +1,14 @@
+# temp.md deployment credentials (contains update token — do NOT commit)
+.tempmd
+
+# Per-machine Claude Code settings (may contain tokens)
+.claude/settings.local.json
+
+# Build artifacts
+trust-center/node_modules/
+trust-center/dist/
+node_modules/
+dist/
+
+# macOS
+.DS_Store

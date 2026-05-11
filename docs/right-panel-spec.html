@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Right panel redesign spec</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --border: #e4e7eb;
+    --text: #1a1f2e;
+    --muted: #6b7280;
+    --primary: #333366;
+    --accent: #0d9488;
+    --live: #16a34a;
+    --ghost-bg: #f3f4f6;
+    --annot: #dc2626;
+    --annot-bg: #fef2f2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); margin: 0 0 32px; }
+  .legend {
+    background: var(--annot-bg);
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 32px;
+    font-size: 13px;
+  }
+  .legend b { color: var(--annot); }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 48px;
+  }
+  .state {
+    min-width: 0;
+  }
+  .state h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 0 0 12px;
+  }
+  .state p.intro { color: var(--muted); margin: 0 0 16px; font-size: 13px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .panel-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  .panel-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0 0 16px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f0fdf4;
+    color: var(--live);
+    border: 1px solid #bbf7d0;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .pill.draft {
+    background: #fffbeb;
+    color: #b45309;
+    border-color: #fde68a;
+  }
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+  }
+  .empty-card {
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 24px 16px;
+    text-align: center;
+  }
+  .empty-card .icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+  .empty-card h3 {
+    font-size: 14px;
+    margin: 0 0 4px;
+  }
+  .empty-card p {
+    color: var(--muted);
+    font-size: 12px;
+    margin: 0 0 14px;
+  }
+  button.primary {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+  }
+  button.ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    width: 100%;
+  }
+  button.accent {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+  }
+  .link {
+    color: var(--primary);
+    font-size: 13px;
+    text-decoration: none;
+    display: inline-block;
+    margin-top: 10px;
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .row > * { flex: 1; }
+  .accordion {
+    border-top: 1px solid var(--border);
+    padding: 12px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .accordion:first-of-type { border-top: none; }
+  .accordion .chev { color: var(--muted); font-size: 12px; }
+  .status-card {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .status-card .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .status-card .url {
+    font-size: 12px;
+    color: var(--primary);
+    word-break: break-all;
+  }
+  .status-card .ts {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .meta {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+  .annotation {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: var(--annot-bg);
+    border-left: 3px solid var(--annot);
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .num {
+    background: var(--annot);
+    color: #fff;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .compare {
+    margin-top: 48px;
+    border-top: 1px solid var(--border);
+    padding-top: 32px;
+  }
+  .compare h2 { font-size: 16px; margin: 0 0 16px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    background: #fafbfc;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+  .tag {
+    display: inline-block;
+    background: #eef2ff;
+    color: var(--primary);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    margin-right: 4px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Right panel redesign, three states</h1>
+<p class="subtitle">Annotated sketch for the Draft &amp; Publish panel in the Designer. Red numbers map to the notes beneath each state.</p>
+
+<div class="legend">
+  <b>How to read this:</b> each column is the full right panel in one state. The red numbered bubbles below each mockup explain the change from what you have today.
+</div>
+
+<div class="grid">
+
+  <!-- STATE 1: NO DRAFT -->
+  <div class="state">
+    <h2>State 1 &middot; No draft yet</h2>
+    <p class="intro">Admin has never created a draft on this Trust Center.</p>
+
+    <div class="panel">
+      <p class="panel-title">Staging <span class="num" style="margin-left:6px">1</span></p>
+      <p class="panel-sub">Create a draft to safely edit your Trust Center. Visitors keep seeing the published version until you publish. <span class="num">2</span></p>
+
+      <div class="empty-card">
+        <div class="icon">&#9998;</div>
+        <h3>No draft yet</h3>
+        <p>Start a draft to stage layout, colors, fonts, and imagery.</p>
+        <button class="primary">Create draft</button>
+        <span class="num" style="position:absolute; margin-top:-150px">3</span>
+      </div>
+
+      <a class="link" href="#">&#8599; Open published Trust Center <span class="num">4</span></a>
+    </div>
+
+    <div class="annotation"><span class="num">1</span><span>Rename panel to <b>Staging</b>. Shorter and matches the Notion brief language. Removes the duplicate <i>Draft/Published</i> segmented control that used to live here since the top strip already handles view switching.</span></div>
+    <div class="annotation"><span class="num">2</span><span>One short explainer sentence instead of three. Tells the user what a draft does without a paragraph.</span></div>
+    <div class="annotation"><span class="num">3</span><span>Single <b>empty state card</b> with one primary action. No disabled Publish or Discard buttons. No Active draft dropdown. No Brand Settings or Public View yet, they only make sense once a draft exists.</span></div>
+    <div class="annotation"><span class="num">4</span><span>Quiet secondary link, not a bordered button, so the eye lands on Create draft first.</span></div>
+  </div>
+
+  <!-- STATE 2: EDITING DRAFT -->
+  <div class="state">
+    <h2>State 2 &middot; Editing a draft</h2>
+    <p class="intro">A draft exists. Admin is making changes.</p>
+
+    <div class="panel">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <p class="panel-title" style="margin:0;">Editing draft <span class="num" style="margin-left:6px">1</span></p>
+        <span style="font-size:16px; color:var(--muted); cursor:pointer">&middot;&middot;&middot;</span>
+      </div>
+      <div style="margin-top:8px; display:flex; align-items:center; gap:10px;">
+        <span class="pill draft"><span class="dot"></span> Draft, autosaving</span>
+        <span style="font-size:11px; color:var(--muted);">Saved 2 min ago</span>
+      </div>
+      <span class="num" style="margin-top:4px; display:inline-block">2</span>
+
+      <div class="row" style="margin-top:18px;">
+        <button class="accent">Publish</button>
+        <button class="ghost">Discard</button>
+      </div>
+      <span class="num" style="margin-top:6px; display:inline-block">3</span>
+
+      <div style="margin-top:20px;">
+        <div class="accordion">Public View <span class="chev">&or;</span></div>
+        <div class="accordion">Brand Settings <span class="chev">&or;</span></div>
+        <div class="accordion">Typography <span class="chev">&or;</span></div>
+        <div class="accordion">Layout Visibility <span class="chev">&or;</span></div>
+      </div>
+      <span class="num" style="margin-top:6px; display:inline-block">4</span>
+    </div>
+
+    <div class="annotation"><span class="num">1</span><span>Panel title now says what the user is <b>doing</b>, not what the panel <b>is</b>. The three-dot menu holds overflow actions like "Open published in new tab".</span></div>
+    <div class="annotation"><span class="num">2</span><span><b>Status pill + timestamp</b> replaces the paragraph of intro copy. Instant read on whether autosave is working.</span></div>
+    <div class="annotation"><span class="num">3</span><span>Primary actions live at the top in a single row: <b>Publish</b> (accent) and <b>Discard</b> (ghost). Two buttons, not four. Consider making this row sticky so it stays visible as the user scrolls the accordions.</span></div>
+    <div class="annotation"><span class="num">4</span><span>All editable settings collapse into <b>accordions</b>, like layer groups in Figma. Calm by default, one click to drill in. Language moves out of this panel and into the center preview toolbar next to visitor-type.</span></div>
+  </div>
+
+  <!-- STATE 3: PUBLISHED -->
+  <div class="state">
+    <h2>State 3 &middot; Published view</h2>
+    <p class="intro">Admin flipped the top strip to Published to confirm what is live.</p>
+
+    <div class="panel">
+      <p class="panel-title">Published <span class="num" style="margin-left:6px">1</span></p>
+      <p class="panel-sub">This is what visitors see right now.</p>
+
+      <div class="status-card">
+        <div class="top">
+          <span class="pill"><span class="dot"></span> Live for visitors</span>
+          <a class="link" style="margin:0;" href="#">Share</a>
+        </div>
+        <div class="url">trust.mediacore.com</div>
+        <div class="ts">Last published Apr 10, 2026 &middot; 2:14 PM</div>
+      </div>
+      <span class="num" style="margin-top:-8px; display:inline-block">2</span>
+
+      <button class="primary">Edit in draft</button>
+      <span class="num" style="margin-top:6px; display:inline-block">3</span>
+
+      <div style="margin-top:20px;">
+        <div class="accordion">What is published <span class="chev">&or;</span></div>
+      </div>
+      <span class="num" style="margin-top:6px; display:inline-block">4</span>
+    </div>
+
+    <div class="annotation"><span class="num">1</span><span>Panel title is simply <b>Published</b>. No duplicate segmented control, the top strip already shows which view you are in.</span></div>
+    <div class="annotation"><span class="num">2</span><span>One <b>status card</b> bundles everything about the live site: Live pill, URL, last-published timestamp, Share action. Replaces the scattered key-value rows.</span></div>
+    <div class="annotation"><span class="num">3</span><span>Single primary action: <b>Edit in draft</b>. Published view is for confirming, not editing, so only one button that takes you back to work.</span></div>
+    <div class="annotation"><span class="num">4</span><span>The 10-item numbered sections list is gone. If people still want a read-only summary of what is published, tuck it into this collapsed accordion so it is available but silent.</span></div>
+  </div>
+
+</div>
+
+<div class="compare">
+  <h2>Before vs after, at a glance</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 28%;">Area</th>
+        <th style="width: 36%;">Today</th>
+        <th style="width: 36%;">Proposed</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>View switcher</td>
+        <td>Appears in top strip <b>and</b> as a segmented control in the panel</td>
+        <td>Only in the top strip, single source of truth</td>
+      </tr>
+      <tr>
+        <td>No-draft state</td>
+        <td>Shows disabled Publish and Discard, language dropdown, explainer paragraphs</td>
+        <td>Just an empty-state card with <b>Create draft</b></td>
+      </tr>
+      <tr>
+        <td>Draft state actions</td>
+        <td>Publish, Discard, Open published, View draft in center, Create first draft</td>
+        <td>Publish + Discard only, rest goes in a three-dot menu</td>
+      </tr>
+      <tr>
+        <td>Published state info</td>
+        <td>Key-value rows (Public view, Go Live, Accent, Primary, Font) + 10-item section list + language</td>
+        <td>One status card + <b>Edit in draft</b> button + optional "What is published" accordion</td>
+      </tr>
+      <tr>
+        <td>Language dropdown</td>
+        <td>Inside the right panel</td>
+        <td>Move to the center preview toolbar, next to visitor-type</td>
+      </tr>
+      <tr>
+        <td>Section containers</td>
+        <td>Every block has its own bordered card</td>
+        <td>Spacing and section headings, cards only for truly-grouped units (layout thumbnails)</td>
+      </tr>
+      <tr>
+        <td>Label style</td>
+        <td>Mixes UPPERCASE CAPS and Title Case</td>
+        <td>Pick one. Suggest Title Case for section headings, caps only for status pills</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>

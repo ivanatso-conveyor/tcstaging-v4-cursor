@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Right panel v2 spec</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --border: #e4e7eb;
+    --border-soft: #eef0f3;
+    --text: #1a1f2e;
+    --muted: #6b7280;
+    --muted-2: #9ca3af;
+    --primary: #333366;
+    --primary-hover: #292951;
+    --live: #16a34a;
+    --live-bg: #f0fdf4;
+    --live-border: #bbf7d0;
+    --amber: #b45309;
+    --amber-bg: #fffbeb;
+    --amber-border: #fde68a;
+    --annot: #dc2626;
+    --annot-bg: #fef2f2;
+    --tab-active-bg: #1a1f2e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); margin: 0 0 24px; }
+  .section {
+    margin-bottom: 48px;
+  }
+  .section h2 {
+    font-size: 16px;
+    margin: 0 0 4px;
+  }
+  .section .kicker {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin: 0 0 12px;
+  }
+
+  /* ========= TOP BAR ========= */
+  .topbar-wrap {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+  .tabs {
+    display: inline-flex;
+    background: #f1f2f5;
+    border-radius: 10px;
+    padding: 4px;
+    gap: 2px;
+  }
+  .tab {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .tab.active {
+    background: var(--tab-active-bg);
+    color: #fff;
+  }
+  .tab-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: 12px;
+    margin-top: 4px;
+  }
+  .pill-amber {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--amber-bg);
+    color: var(--amber);
+    border: 1px solid var(--amber-border);
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .pill-amber .dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+  button.publish {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  button.publish .kb {
+    color: rgba(255,255,255,0.6);
+    margin-left: 8px;
+    font-size: 11px;
+  }
+
+  /* ========= RIGHT PANEL ========= */
+  .layout {
+    display: grid;
+    grid-template-columns: 1.2fr 340px;
+    gap: 32px;
+    align-items: flex-start;
+  }
+  .notes {
+    font-size: 13px;
+  }
+  .panel {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .panel-head {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-soft);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-head h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .panel-tabs {
+    display: flex;
+    padding: 0 20px;
+    gap: 24px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .panel-tab {
+    padding: 10px 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    margin-bottom: -1px;
+  }
+  .panel-tab.active {
+    color: var(--text);
+    border-bottom-color: var(--primary);
+  }
+  .panel-body { padding: 16px 20px; }
+  .group { margin-bottom: 20px; }
+  .group-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  .group-desc {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+  .draft-card {
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fafafe;
+  }
+  .draft-card .left { display:flex; align-items:center; gap:8px; font-size:13px; }
+  .draft-card .clock { color: var(--muted); font-size:14px; }
+  .draft-card .menu {
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+  }
+  .accordion {
+    border-top: 1px solid var(--border-soft);
+    padding: 12px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .accordion .chev { color: var(--muted); }
+  .loc-rows { display: flex; flex-direction: column; }
+  .loc-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    text-transform: none;
+    color: var(--muted);
+    padding: 0 0 6px;
+    border-bottom: 1px solid var(--border-soft);
+    margin-bottom: 4px;
+  }
+  .loc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 13px;
+  }
+  .loc-row:last-child { border-bottom: none; }
+  .toggle {
+    width: 32px;
+    height: 18px;
+    border-radius: 999px;
+    background: #d1d5db;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    transition: all 0.15s;
+  }
+  .toggle.on { background: var(--live); }
+  .toggle.on::after { left: 16px; }
+  .preview-star {
+    color: var(--muted-2);
+    font-size: 12px;
+    margin-right: 10px;
+  }
+  .preview-star.active { color: var(--primary); }
+  .layout-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .layout-row:last-child { border-bottom: none; }
+  .layout-row.hidden { opacity: 0.4; }
+  .layout-row .eye { color: var(--muted); cursor: pointer; }
+  .layout-row .drag { margin-left: auto; color: var(--muted-2); cursor: grab; }
+  .layout-row .name { flex: 1; }
+
+  /* Annotations */
+  .ann {
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--annot-bg);
+    border-left: 3px solid var(--annot);
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.45;
+    margin-bottom: 10px;
+  }
+  .num {
+    background: var(--annot);
+    color: #fff;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .num.inline { margin-left: 6px; }
+
+  /* two columns for annotations next to mocks */
+  .split {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 32px;
+    align-items: flex-start;
+  }
+  .stack > * + * { margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Right panel v2, annotated spec</h1>
+<p class="subtitle">Applying the edits from the review. Red numbered bubbles map to the notes on the right.</p>
+
+<!-- ============ TOP BAR ============ -->
+<div class="section">
+  <p class="kicker">Section 1</p>
+  <h2>Top bar for drafting</h2>
+  <div class="split">
+    <div>
+      <div class="topbar-wrap">
+        <div>
+          <div class="tabs">
+            <div class="tab active">Draft</div>
+            <div class="tab">Published</div>
+          </div>
+          <div class="tab-sub">Saved 6:08 PM &middot; <span class="pill-amber" style="padding:1px 8px; font-size:11px;"><span class="dot"></span> Unpublished changes</span></div>
+        </div>
+        <button class="publish">Publish draft <span class="kb">&#8984;&#8679;P</span></button>
+      </div>
+      <div style="font-size:12px; color:var(--muted); padding-left:4px;">&larr; replaces the long banner and the timestamp-inside-the-tab pattern</div>
+    </div>
+
+    <div class="notes stack">
+      <div class="ann"><span class="num">1</span><span>Tabs are now parallel: <b>Draft</b> and <b>Published</b>. Timestamp moves below the tabs as a subtitle, not inside the tab label.</span></div>
+      <div class="ann"><span class="num">2</span><span>Small <b>amber "Unpublished changes" pill</b> replaces the full-width banner. Same information, much less visual weight, and no em dash.</span></div>
+      <div class="ann"><span class="num">3</span><span>Publish button uses <b>brand primary navy</b> instead of teal. Green stays reserved for "live" status only.</span></div>
+      <div class="ann"><span class="num">4</span><span>Keyboard shortcut hint <code>&#8984;&#8679;P</code> added inside the button. Small polish, feels designed.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ RIGHT PANEL ============ -->
+<div class="section">
+  <p class="kicker">Section 2</p>
+  <h2>Right panel, Edit tab selected</h2>
+  <div class="split">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Trust Center Editor</h3>
+        <span style="color:var(--muted); cursor:pointer">&#9432;</span>
+      </div>
+      <div class="panel-tabs">
+        <div class="panel-tab active">Edit</div>
+        <div class="panel-tab">Publish <span class="pill-amber" style="margin-left:4px; padding:1px 6px; font-size:10px;">1</span></div>
+      </div>
+      <div class="panel-body">
+
+        <div class="accordion" style="border-top:none">Public View <span class="chev">&or;</span></div>
+        <div class="accordion">Brand Settings <span class="chev">&or;</span></div>
+
+        <div class="accordion" style="flex-direction:column; align-items:stretch; cursor:default;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Localization</span>
+            <span class="chev">&and;</span>
+          </div>
+          <p style="font-size:12px; color:var(--muted); margin:6px 0 10px;">Pick which languages visitors can see. Tap a star to preview one in the center.</p>
+          <div class="loc-label">
+            <span>Language</span>
+            <span>Show on Trust Center</span>
+          </div>
+          <div class="loc-rows">
+            <div class="loc-row"><span><span class="preview-star active">&#9733;</span>English (US)</span><span class="toggle on"></span></div>
+            <div class="loc-row"><span><span class="preview-star">&#9734;</span>French</span><span class="toggle on"></span></div>
+            <div class="loc-row"><span><span class="preview-star">&#9734;</span>German</span><span class="toggle"></span></div>
+            <div class="loc-row"><span><span class="preview-star">&#9734;</span>Japanese</span><span class="toggle"></span></div>
+            <div class="loc-row"><span><span class="preview-star">&#9734;</span>Portuguese</span><span class="toggle"></span></div>
+            <div class="loc-row"><span><span class="preview-star">&#9734;</span>Spanish</span><span class="toggle"></span></div>
+          </div>
+        </div>
+
+        <div class="accordion" style="flex-direction:column; align-items:stretch; cursor:default;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Layout</span>
+            <span class="chev">&and;</span>
+          </div>
+          <p style="font-size:12px; color:var(--muted); margin:6px 0 8px;">Drag to reorder. Tap the eye to hide a section.</p>
+          <div>
+            <div class="layout-row"><span class="eye">&#128065;</span><span class="name">Certifications</span><span class="drag">&#8801;</span></div>
+            <div class="layout-row"><span class="eye">&#128065;</span><span class="name">Documents &amp; Knowledge Base FAQs</span><span class="drag">&#8801;</span></div>
+            <div class="layout-row"><span class="eye">&#128065;</span><span class="name">Our philosophy</span><span class="drag">&#8801;</span></div>
+            <div class="layout-row"><span class="eye">&#128065;</span><span class="name">Quick summary</span><span class="drag">&#8801;</span></div>
+            <div class="layout-row hidden"><span class="eye">&#128065;&#65038;</span><span class="name">Sub processors</span><span class="drag">&#8801;</span></div>
+            <div class="layout-row"><span class="eye">&#128065;</span><span class="name">Trusted by</span><span class="drag">&#8801;</span></div>
+            <div class="layout-row"><span class="eye">&#128065;</span><span class="name">Featured Documents</span><span class="drag">&#8801;</span></div>
+            <div class="layout-row hidden"><span class="eye">&#128065;&#65038;</span><span class="name">Announcements</span><span class="drag">&#8801;</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="notes stack">
+      <div class="ann"><span class="num">5</span><span>Panel now has two top-level tabs: <b>Edit</b> and <b>Publish</b>. One job at a time. Number <b>1</b> badge on Publish shows there is an unpublished draft.</span></div>
+      <div class="ann"><span class="num">6</span><span>Duplicate Draft/Published segmented control from inside the panel is <b>gone</b>. Top tabs are the only view switcher.</span></div>
+      <div class="ann"><span class="num">7</span><span>All section headings are now <b>Title Case</b> (no more UPPERCASE LANGUAGES). Consistent hierarchy.</span></div>
+      <div class="ann"><span class="num">8</span><span>Localization: removed the confusing double-checkbox row. Each language has <b>one toggle</b>, with a clear header "Show on Trust Center". A star icon on the left lets you pick which language to preview.</span></div>
+      <div class="ann"><span class="num">9</span><span>Intro copy shortened. No more repeating the word "languages" three times.</span></div>
+      <div class="ann"><span class="num">10</span><span>Languages are alphabetized, with the live preview language (English (US)) visually flagged by the filled star.</span></div>
+      <div class="ann"><span class="num">11</span><span>Layout rows: hidden sections (Sub processors, Announcements) now <b>fade to 40% opacity</b> so visibility state is scannable at a glance.</span></div>
+      <div class="ann"><span class="num">12</span><span>"Trust Center features / Layout" wrapper flattened. Just one accordion titled <b>Layout</b>.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PUBLISH TAB ============ -->
+<div class="section">
+  <p class="kicker">Section 3</p>
+  <h2>Right panel, Publish tab selected</h2>
+  <div class="split">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Trust Center Editor</h3>
+        <span style="color:var(--muted); cursor:pointer">&#9432;</span>
+      </div>
+      <div class="panel-tabs">
+        <div class="panel-tab">Edit</div>
+        <div class="panel-tab active">Publish</div>
+      </div>
+      <div class="panel-body">
+
+        <div class="group">
+          <p class="group-title">Staging</p>
+          <p class="group-desc">Changes autosave to the draft. Publish when ready to go live.</p>
+
+          <div class="draft-card">
+            <div class="left">
+              <span class="clock">&#128339;</span>
+              <span>Draft from Apr 13, 6:08 PM</span>
+            </div>
+            <div class="menu" title="More">&middot;&middot;&middot;</div>
+          </div>
+        </div>
+
+        <div class="group" style="border-top:1px solid var(--border-soft); padding-top:16px;">
+          <p class="group-title">Recently published</p>
+          <div style="font-size:12px; color:var(--muted);">Apr 10, 2026 at 2:14 PM by Jamie</div>
+          <div style="font-size:12px; color:var(--muted);">Apr 3, 2026 at 10:02 AM by Ivana</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="notes stack">
+      <div class="ann"><span class="num">13</span><span>Publish tab shows the <b>one active draft</b>. No "+ Create draft" button while a draft exists. Single-draft MVP per the Notion brief.</span></div>
+      <div class="ann"><span class="num">14</span><span>"Drafts" subheading removed since there is only one. If multi-draft is added later, the list grows and the heading comes back.</span></div>
+      <div class="ann"><span class="num">15</span><span>Trash and open-in-new-tab icons on the draft row collapsed into a <b>three-dot overflow menu</b> with Preview and Discard inside, both labeled.</span></div>
+      <div class="ann"><span class="num">16</span><span>Added a <b>"Recently published"</b> history list for context. Helps admins answer "when did I last publish and who did it."</span></div>
+      <div class="ann"><span class="num">17</span><span>No Publish button here; Publish lives in the <b>top bar</b> as the single primary action. This tab is for draft management only.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ EMPTY STATE ============ -->
+<div class="section">
+  <p class="kicker">Section 4</p>
+  <h2>Publish tab, no draft yet</h2>
+  <div class="split">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Trust Center Editor</h3>
+        <span style="color:var(--muted); cursor:pointer">&#9432;</span>
+      </div>
+      <div class="panel-tabs">
+        <div class="panel-tab">Edit</div>
+        <div class="panel-tab active">Publish</div>
+      </div>
+      <div class="panel-body">
+        <div style="border:1px dashed var(--border); border-radius:10px; padding:24px 16px; text-align:center;">
+          <div style="font-size:22px; margin-bottom:6px;">&#9998;</div>
+          <div style="font-weight:600; font-size:14px; margin-bottom:4px;">No draft yet</div>
+          <div style="font-size:12px; color:var(--muted); margin-bottom:14px;">Start a draft to stage layout, colors, fonts, and imagery.</div>
+          <button class="publish" style="width:100%;">Create draft</button>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:12px; font-size:13px; color:var(--primary); text-decoration:none;">&#8599; Open published Trust Center</a>
+      </div>
+    </div>
+
+    <div class="notes stack">
+      <div class="ann"><span class="num">18</span><span>Empty state shows <b>only one primary action</b>: Create draft. No disabled Publish or Discard buttons. No Brand/Public View in this tab at all.</span></div>
+      <div class="ann"><span class="num">19</span><span>The Edit tab stays available and fully editable, so users can experiment before they are ready to stage formally.</span></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
