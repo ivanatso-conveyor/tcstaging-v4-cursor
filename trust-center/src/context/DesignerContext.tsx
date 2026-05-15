@@ -261,9 +261,10 @@ export function DesignerProvider({ children }: { children: ReactNode }) {
   const publishedSnapshot = cloneStageable(initial);
   publishedSnapshot.publicView = 'simple';
 
-  // Seed one draft whose payload keeps the default "modern" public view.
-  // Mark English as "ever published" so Publish Live URL activates it (the diff
-  // logic only checks localeLive, so this doesn't add a visible change).
+  // Seed one draft whose payload keeps the default "modern" public view (vs published snapshot "simple")
+  // so the change log shows a sample diff. Prototype cold start: nothing visitor-live yet.
+  // English is marked "ever published" on the draft so that Publish Live URL → goLive
+  // correctly turns English visitor-live (the goLive logic only activates locales in mergedEver).
   const draftPayload = cloneStageable(initial); // publicView: 'modern'
   draftPayload.localeEverPublished = { ...draftPayload.localeEverPublished, en: true };
   const seedDraftId = newDraftId();
@@ -283,7 +284,7 @@ export function DesignerProvider({ children }: { children: ReactNode }) {
     savedCompanyProfile: null,
     featuredDocumentsLayout: 'column-fill',
     publishedSnapshot,
-    publishedTrustCenterNames: { en: formatTrustCenterName() },
+    publishedTrustCenterNames: {},
     publishedChangelogNote: '',
     drafts: [seedDraft],
     activeDraftId: seedDraftId,
@@ -341,7 +342,8 @@ export function DesignerProvider({ children }: { children: ReactNode }) {
 
   const toggleSection = (id: string) =>
     setState((s) => {
-      const v = { ...s.sectionVisibility, [id]: !s.sectionVisibility[id] };
+      const currentVisible = s.sectionVisibility[id] !== false;
+      const v = { ...s.sectionVisibility, [id]: !currentVisible };
       return patchActiveDraft(s, { sectionVisibility: v });
     });
 
@@ -515,14 +517,13 @@ export function DesignerProvider({ children }: { children: ReactNode }) {
       }
       const nextPublished = { ...s.publishedSnapshot, localeLive: nextLive };
 
-      // 4. Overwrite any existing draft. Stay on published view so the user
-      //    immediately sees the empty state; they can switch to draft when ready.
+      // 4. Overwrite any existing draft. UI switches to the Draft tab and shows a confirmation toast.
       return {
         ...s,
         publishedSnapshot: nextPublished,
         drafts: [draft],
         activeDraftId: id,
-        previewMode: 'published',
+        previewMode: 'draft',
         ...stageableToMirror(draftPayload),
       };
     });

@@ -1,4 +1,4 @@
-import { LAYOUT_SECTION_LABELS, type LayoutSectionId } from '../constants/layoutSectionOrder';
+import { LAYOUT_SECTION_IDS, LAYOUT_SECTION_LABELS, TRUST_CENTER_BANNER_VISIBILITY_ID, type LayoutSectionId } from '../constants/layoutSectionOrder';
 import { previewLocaleLabel, PREVIEW_LOCALES } from '../constants/previewLocale';
 import type { StageablePresentation } from '../types/staging';
 
@@ -58,11 +58,22 @@ export function computeDraftDiff(
   }
 
   const visChanges: string[] = [];
-  for (const id of draft.sectionOrder) {
+  const visibilityIds = new Set<string>([
+    ...LAYOUT_SECTION_IDS,
+    ...draft.sectionOrder,
+    ...published.sectionOrder,
+    TRUST_CENTER_BANNER_VISIBILITY_ID,
+    'company-profile',
+    'quick-links',
+  ]);
+  for (const id of visibilityIds) {
     const draftVis = draft.sectionVisibility[id] !== false;
     const pubVis = published.sectionVisibility[id] !== false;
     if (draftVis !== pubVis) {
-      const label = LAYOUT_SECTION_LABELS[id as LayoutSectionId] ?? id;
+      const label =
+        id === TRUST_CENTER_BANNER_VISIBILITY_ID
+          ? 'Trust Center banner'
+          : (LAYOUT_SECTION_LABELS[id as LayoutSectionId] ?? id);
       visChanges.push(`${label} ${draftVis ? 'shown' : 'hidden'}`);
     }
   }

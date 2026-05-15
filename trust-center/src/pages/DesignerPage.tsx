@@ -29,14 +29,12 @@ export default function DesignerPage() {
           onToggleCollapse={() => setLeftNavCollapsed(!leftNavCollapsed)}
         />
 
-        {/* Staging strip sits above the center preview only so it centers over the Trust Center workspace. */}
+        {/* Toolbar spans full width above both the center preview and the right panel. */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <DesignerStagingToolbar workspaceTab={workspaceTab} onWorkspaceTabChange={setWorkspaceTab} />
           <div className="flex min-h-0 min-w-0 flex-1 flex-row">
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <DesignerStagingToolbar workspaceTab={workspaceTab} onWorkspaceTabChange={setWorkspaceTab} />
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                <TrustCenterContent workspaceTab={workspaceTab} onWorkspaceTabChange={setWorkspaceTab} />
-              </div>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <TrustCenterContent workspaceTab={workspaceTab} onWorkspaceTabChange={setWorkspaceTab} />
             </div>
             <RightPanel workspaceTab={workspaceTab} onWorkspaceTabChange={setWorkspaceTab} />
           </div>

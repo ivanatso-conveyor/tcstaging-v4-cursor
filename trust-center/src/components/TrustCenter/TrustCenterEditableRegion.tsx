@@ -1,7 +1,8 @@
 /**
  * TrustCenterEditableRegion
- * Hover target for designer preview sections. Published preview usually shows **Draft an Edit**;
- * use `publishedOverlay="pencil-only"` for blocks that edit live without the draft flow (company profile, quick links, certifications).
+ * Hover target for designer preview sections. Published preview shows **Draft an Edit** (or pencil-only).
+ * Draft preview shows the same pencil overlay only when `TrustCenterSectionEditProvider` sets `enabled`
+ * (pre-first-publish onboarding); after a locale is live or has publish history, draft preview stays plain.
  * Click routing is handled in `TrustCenterContent`.
  * Figma: Trust Center Vision HQ > Designer > Trust Center preview (hover edit targets)
  */

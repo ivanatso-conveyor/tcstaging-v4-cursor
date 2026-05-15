@@ -1,13 +1,12 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { Fragment, useCallback, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGripVertical } from '@fortawesome/free-solid-svg-icons';
-import { ChevronDown, ExternalLink, Share2, Users, User } from 'lucide-react';
 import { getDesignerTrustCenterPresentation, getPublishedPresentation, useDesigner } from '../../context/DesignerContext';
 import { ProductFilterProvider } from '../../contexts/ProductFilterContext';
 import { ReviewingProductFilterProvider } from '../../contexts/ReviewingProductFilterContext';
-import { LAYOUT_SECTION_IDS, type LayoutSectionId } from '../../constants/layoutSectionOrder';
+import { LAYOUT_SECTION_IDS, type LayoutSectionId, TRUST_CENTER_BANNER_VISIBILITY_ID } from '../../constants/layoutSectionOrder';
 import { LANGUAGE_MENU } from '../../constants/previewLocale';
+import { DESIGNER_PREVIEW_EDGE_PAD_CLASS, DESIGNER_PREVIEW_MAX_WIDTH_CLASS } from '../../constants/designerLayout';
 import StickyNav from '../Navigation/StickyNav';
 import type { SearchItem } from '../../data/searchData';
 import HeaderBanner from './HeaderBanner';
@@ -22,6 +21,9 @@ import FeaturedDocumentsSection from './FeaturedDocumentsSection';
 import AnnouncementsSection from './AnnouncementsSection';
 import WhatWeOfferSection from './WhatWeOfferSection';
 import VideoSection from './VideoSection';
+import DraftPreviewFloatingBar from './DraftPreviewFloatingBar';
+import DraftFullPagePreviewBanner from './DraftFullPagePreviewBanner';
+import FixedSectionDnDHandle from './FixedSectionDnDHandle';
 import EditSectionPlaceholderModal from './EditSectionPlaceholderModal';
 import CompanyProfileModal from './CompanyProfileModal';
 import QuickLinksSettingsModal from './QuickLinksSettingsModal';
@@ -32,6 +34,7 @@ import FeaturedDocumentsSettingsModal from './FeaturedDocumentsSettingsModal';
 import TrustedBySettingsModal from './TrustedBySettingsModal';
 import PhilosophySettingsModal from './PhilosophySettingsModal';
 import ComingSoonSettingsModal from './ComingSoonSettingsModal';
+import DocumentsSearchModal from './DocumentsSearchModal';
 import type { EditableTrustSectionId } from '../../contexts/TrustCenterSectionEditContext';
 import { TrustCenterSectionEditProvider } from '../../contexts/TrustCenterSectionEditContext';
 
@@ -40,7 +43,11 @@ const PUBLISHED_LIVE_EDIT_SECTION_IDS: readonly EditableTrustSectionId[] = ['pro
 
 interface TrustCenterContentProps {
   standalone?: boolean;
-  /** Designer right-panel tab. When 'draft' with no draft, the preview is view-only (no pencils). */
+  /** `/trust-center?draftPreview=1` — full-page draft mirror, top **Draft Preview** banner, and blue floating preview bar (prototype). */
+  draftPreviewFullPage?: boolean;
+  /** `/trust-center?publishedPreview=1` — visitor snapshot like plain `/trust-center`, plus blue floating preview bar only (no draft banner). */
+  publishedPreviewFullPage?: boolean;
+  /** Designer right-panel tab. When 'draft' with no draft, the preview shows the empty state (no section pencils). */
   workspaceTab?: 'draft' | 'published';
   /** Switch the workspace tab (syncs right panel + toolbar). */
   onWorkspaceTabChange?: (tab: 'draft' | 'published') => void;
@@ -52,17 +59,27 @@ function buildRenderPlan(order: readonly string[]): LayoutSectionId[] {
   );
 }
 
-export default function TrustCenterContent({ standalone = false, workspaceTab, onWorkspaceTabChange }: TrustCenterContentProps) {
+export default function TrustCenterContent({
+  standalone = false,
+  draftPreviewFullPage = false,
+  publishedPreviewFullPage = false,
+  workspaceTab,
+  onWorkspaceTabChange,
+}: TrustCenterContentProps) {
   const [editSection, setEditSection] = useState<EditableTrustSectionId | null>(null);
   const { state, openDraftWorkspaceFromPublishedPreview, reorderSections, createDraft, setPreviewMode } = useDesigner();
   /** Preview-side DnD (draft mode only). Indices are into the rendered `plan`. */
   const [draggingPlanIndex, setDraggingPlanIndex] = useState<number | null>(null);
   const [dropIndicatorPlanIndex, setDropIndicatorPlanIndex] = useState<number | null>(null);
-  const presentation = useMemo(
-    () =>
-      standalone ? getPublishedPresentation(state) : getDesignerTrustCenterPresentation(state),
-    [standalone, state],
-  );
+  const presentation = useMemo(() => {
+    if (standalone && draftPreviewFullPage && state.drafts.length > 0) {
+      return getDesignerTrustCenterPresentation(state);
+    }
+    if (standalone) {
+      return getPublishedPresentation(state);
+    }
+    return getDesignerTrustCenterPresentation(state);
+  }, [standalone, draftPreviewFullPage, state]);
   const v = presentation.sectionVisibility;
   /** Public `/trust-center` ignores designer hide toggles so the page always shows full content. */
   const show = (id: string) => standalone || (v[id] ?? true);
@@ -147,18 +164,26 @@ export default function TrustCenterContent({ standalone = false, workspaceTab, o
 
   const sectionEditValue = useMemo(
     () => {
-      // In draft mode, disable hover-to-edit pencil overlays on the centre preview —
-      // section edits are driven from the Section Layout panel (drag-and-drop + pencil
-      // icons in the right panel). The user would have to switch to Published preview to
-      // get "Draft an Edit" overlays.
-      const editEnabled = !standalone && state.previewMode === 'published';
+      // Published preview: always show overlays (Draft an Edit / pencil-only).
+      // Draft preview: show section pencil overlays when no locale is currently visitor-live.
+      // This covers two cases:
+      //   1. Brand-new workspace (never published) — pencils let you configure before first publish.
+      //   2. Unpublished Trust Center — user toggled off the live TC and it moved to draft;
+      //      they can now edit everything freely via pencils until they re-publish.
+      // Once any locale is visitor-live, draft edits use drag-and-drop in the right panel
+      // and content edits go through the Published tab "Edit Live Content" flow.
+      const editEnabled =
+        !standalone &&
+        (state.previewMode === 'published' ||
+          (state.previewMode === 'draft' && !isVisitorLive));
       return {
         enabled: editEnabled,
-        previewMode: standalone ? ('published' as const) : state.previewMode,
+        previewMode:
+          standalone && draftPreviewFullPage ? ('draft' as const) : standalone ? ('published' as const) : state.previewMode,
         onSectionEdit,
       };
     },
-    [standalone, state.previewMode, onSectionEdit],
+    [standalone, draftPreviewFullPage, state.previewMode, isVisitorLive, onSectionEdit],
   );
 
   const renderSection = (id: LayoutSectionId) => {
@@ -193,34 +218,93 @@ export default function TrustCenterContent({ standalone = false, workspaceTab, o
       <ReviewingProductFilterProvider>
         <div
           ref={previewAreaRef}
-          className={`min-w-0 bg-primary-200 ${
-            standalone ? 'min-h-screen' : 'min-h-0 w-full flex-1 overflow-y-auto'
+          className={`min-w-0 ${
+            standalone ? 'min-h-screen bg-primary-200' : 'flex min-h-0 w-full flex-1 flex-col bg-primary-100'
           }`}
           style={brandVars}
         >
           <TrustCenterSectionEditProvider value={sectionEditValue}>
             {showPublishedSkeleton ? (
-              <PublishedEmptySkeleton hasEverPublished={hasEverPublished} onViewDraft={() => { setPreviewMode('draft'); onWorkspaceTabChange?.('draft'); }} />
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+                <PublishedEmptySkeleton
+                  hasEverPublished={hasEverPublished}
+                  onViewDraft={() => {
+                    setPreviewMode('draft');
+                    onWorkspaceTabChange?.('draft');
+                  }}
+                />
+              </div>
             ) : showDraftEmptyState ? (
-              <DraftEmptySkeleton onCreateDraft={createDraft} />
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+                {isVisitorLive ? (
+                  <DraftEmptySkeletonLiveNoDraft onCreateDraft={createDraft} />
+                ) : (
+                  <DraftEmptySkeleton onCreateDraft={createDraft} />
+                )}
+              </div>
             ) : (
-            <>
-            <StickyNav
-              onSectionClick={onSectionClick}
-              onDocumentClick={onDocumentClick}
-              onAskAI={onAskAI}
-              savedTrustCenterImageryOverride={presentation.savedTrustCenterImagery}
-            />
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {!standalone && <div className="h-3 shrink-0" aria-hidden />}
+            {standalone ? (
+              <>
+                {draftPreviewFullPage && state.drafts.length > 0 ? (
+                  <DraftFullPagePreviewBanner
+                    draftName={
+                      state.drafts.find((d) => d.id === state.activeDraftId)?.name ??
+                      state.drafts[0]?.name ??
+                      'Untitled'
+                    }
+                  />
+                ) : null}
+                <StickyNav
+                  onSectionClick={onSectionClick}
+                  onDocumentClick={onDocumentClick}
+                  onAskAI={onAskAI}
+                  savedTrustCenterImageryOverride={presentation.savedTrustCenterImagery}
+                  useViewportSticky
+                />
+              </>
+            ) : (
+              <div
+                className={`shrink-0 overflow-hidden rounded-t-lg ${DESIGNER_PREVIEW_EDGE_PAD_CLASS}`}
+              >
+                <div className={DESIGNER_PREVIEW_MAX_WIDTH_CLASS}>
+                  <StickyNav
+                    onSectionClick={onSectionClick}
+                    onDocumentClick={onDocumentClick}
+                    onAskAI={onAskAI}
+                    savedTrustCenterImageryOverride={presentation.savedTrustCenterImagery}
+                    useViewportSticky={false}
+                  />
+                </div>
+              </div>
+            )}
+            {/* Designer: scroll is only inside this region so Mediacore bar stays fixed below the staging toolbar. */}
+            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
             {/* Grey page shell; Trust Center sits in a centered white card (designer preview matches public page). */}
-            <div className="px-4 pb-10 pt-0 sm:px-6 md:px-8">
-              <div className="mx-auto max-w-[1360px] overflow-hidden rounded-t-none rounded-b-xl bg-white shadow-sm ring-1 ring-primary-400/50">
-                <HeaderBanner savedTrustCenterImageryOverride={presentation.savedTrustCenterImagery} />
+            <div className={`${DESIGNER_PREVIEW_EDGE_PAD_CLASS} pb-10 pt-0`}>
+                <div className={`${DESIGNER_PREVIEW_MAX_WIDTH_CLASS} overflow-hidden rounded-t-none rounded-b-xl bg-white shadow-sm ring-1 ring-primary-400/50`}>
+                {(standalone || show(TRUST_CENTER_BANNER_VISIBILITY_ID)) ? (
+                  canReorder ? (
+                    <FixedSectionDnDHandle>
+                      <HeaderBanner savedTrustCenterImageryOverride={presentation.savedTrustCenterImagery} />
+                    </FixedSectionDnDHandle>
+                  ) : (
+                    <HeaderBanner savedTrustCenterImageryOverride={presentation.savedTrustCenterImagery} />
+                  )
+                ) : null}
 
                 <div id="section-just-for-you" className="scroll-mt-20 h-px w-full shrink-0" aria-hidden />
 
-                {(standalone || show('company-profile')) ? <IdentitySection /> : null}
+                {canReorder ? (
+                  <FixedSectionDnDHandle>
+                    <IdentitySection />
+                  </FixedSectionDnDHandle>
+                ) : (
+                  <IdentitySection />
+                )}
 
-                {(standalone || show('company-profile')) ? <Divider /> : null}
+                <Divider />
 
                 {plan.map((id, idx) => (
                   <Fragment key={id}>
@@ -283,7 +367,8 @@ export default function TrustCenterContent({ standalone = false, workspaceTab, o
                 ) : null}
               </div>
             </div>
-            </>
+            </div>
+            </div>
             )}
             {editSection === 'quick-links' ? (
               <QuickLinksSettingsModal onClose={() => setEditSection(null)} />
@@ -303,12 +388,19 @@ export default function TrustCenterContent({ standalone = false, workspaceTab, o
               <PhilosophySettingsModal onClose={() => setEditSection(null)} />
             ) : editSection === 'coming-soon' ? (
               <ComingSoonSettingsModal onClose={() => setEditSection(null)} />
+            ) : editSection === 'find-answer' ? (
+              <DocumentsSearchModal
+                initialPanelKey="documents"
+                onClose={() => setEditSection(null)}
+              />
             ) : (
               <EditSectionPlaceholderModal section={editSection} onClose={() => setEditSection(null)} />
             )}
           </TrustCenterSectionEditProvider>
-          {!standalone && workspaceTab === 'draft' && !showDraftEmptyState && <PreviewAsBar containerRef={previewAreaRef} />}
-          {!standalone && workspaceTab === 'published' && isVisitorLive && <PublishedViewBar containerRef={previewAreaRef} />}
+          {standalone &&
+          ((draftPreviewFullPage && state.drafts.length > 0) || publishedPreviewFullPage) ? (
+            <DraftPreviewFloatingBar containerRef={previewAreaRef} />
+          ) : null}
         </div>
       </ReviewingProductFilterProvider>
     </ProductFilterProvider>
@@ -377,483 +469,7 @@ function SectionDropIndicator() {
   );
 }
 
-const SEGMENT_OPTIONS = ['External - Approved', 'External - Not approved', 'Myself'] as const;
-
-/** Floating blue bar pinned to the visible bottom of the Trust Center preview area via a portal. */
-function PreviewAsBar({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) {
-  const [selectorOpen, setSelectorOpen] = useState(false);
-  const [activeSegment, setActiveSegment] = useState<string>(SEGMENT_OPTIONS[0]);
-  const [pos, setPos] = useState<{ left: number; width: number; bottom: number } | null>(null);
-  const pillRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const update = () => {
-      const rect = el.getBoundingClientRect();
-      // Use the container's left/width but clamp bottom to the viewport
-      // (the container may extend below the viewport when not height-constrained).
-      const visibleBottom = Math.min(rect.bottom, window.innerHeight);
-      setPos({ left: rect.left, width: rect.width, bottom: window.innerHeight - visibleBottom });
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    window.addEventListener('resize', update);
-    return () => { ro.disconnect(); window.removeEventListener('resize', update); };
-  }, [containerRef]);
-
-  if (!pos || typeof document === 'undefined') return null;
-
-  return createPortal(
-    <>
-      <div
-        className="pointer-events-none fixed z-40 flex justify-center"
-        style={{ left: pos.left, width: pos.width, bottom: pos.bottom + 16 }}
-      >
-        <div
-          className="pointer-events-auto flex h-10 w-full max-w-[952px] items-center justify-between rounded-xl px-5 shadow-lg"
-          style={{ backgroundColor: '#0569CB' }}
-        >
-          <div className="flex items-center gap-2.5">
-            <span
-              className="text-[13px] font-medium text-white"
-              style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-            >
-              Previewing as:
-            </span>
-            <button
-              ref={pillRef}
-              type="button"
-              onClick={() => setSelectorOpen((v) => !v)}
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-medium text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-              style={{ backgroundColor: '#0052B1' }}
-            >
-              {activeSegment}
-              <ChevronDown size={13} strokeWidth={2} aria-hidden />
-            </button>
-          </div>
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-white transition-colors hover:text-white/80"
-              style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-            >
-              <Share2 size={13} strokeWidth={2} aria-hidden />
-              Share
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-white transition-colors hover:text-white/80"
-              style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-            >
-              <ExternalLink size={13} strokeWidth={2} aria-hidden />
-              Open in new tab
-            </button>
-          </div>
-        </div>
-      </div>
-      {selectorOpen && (
-        <SegmentSelectorPopover
-          anchorRef={pillRef}
-          activeSegment={activeSegment}
-          onSelect={(seg) => {
-            setActiveSegment(seg);
-            setSelectorOpen(false);
-          }}
-          onClose={() => setSelectorOpen(false)}
-        />
-      )}
-    </>,
-    document.body,
-  );
-}
-
-/** Popover anchored above the segment pill for choosing a preview segment or email. */
-function SegmentSelectorPopover({
-  anchorRef,
-  activeSegment,
-  onSelect,
-  onClose,
-}: {
-  anchorRef: React.RefObject<HTMLButtonElement | null>;
-  activeSegment: string;
-  onSelect: (segment: string) => void;
-  onClose: () => void;
-}) {
-  const [tab, setTab] = useState<'segment' | 'email'>('segment');
-  const [selected, setSelected] = useState(activeSegment);
-  const [anchor, setAnchor] = useState<{ left: number; bottom: number } | null>(null);
-
-  useEffect(() => {
-    const el = anchorRef.current;
-    if (!el) return;
-    const update = () => {
-      const rect = el.getBoundingClientRect();
-      setAnchor({ left: rect.left, bottom: window.innerHeight - rect.top + 8 });
-    };
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, [anchorRef]);
-
-  if (!anchor) return null;
-
-  return (
-    <>
-      <div className="fixed inset-0 z-[199]" onClick={onClose} />
-      <div
-        className="fixed z-[200] w-[380px] rounded-xl border border-primary-300 bg-white shadow-2xl"
-        style={{ left: anchor.left, bottom: anchor.bottom }}
-      >
-        {/* Toggle tabs — pill-style segmented control */}
-        <div className="px-4 pt-4 pb-3">
-          <div className="flex rounded-lg border border-primary-300 bg-primary-100 p-0.5">
-            <button
-              type="button"
-              onClick={() => setTab('segment')}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                tab === 'segment'
-                  ? 'bg-white text-primary-800 shadow-sm'
-                  : 'text-primary-500 hover:text-primary-700'
-              }`}
-              style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-            >
-              <Users size={13} strokeWidth={2} />
-              User segment
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('email')}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                tab === 'email'
-                  ? 'bg-white text-primary-800 shadow-sm'
-                  : 'text-primary-500 hover:text-primary-700'
-              }`}
-              style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-            >
-              <User size={13} strokeWidth={2} />
-              User email address
-            </button>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="px-4 pb-4">
-          {tab === 'segment' ? (
-            <>
-              <p
-                className="mb-2 text-xs font-medium text-primary-800"
-                style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-              >
-                Select option:
-              </p>
-              <div className="flex gap-1.5">
-                {SEGMENT_OPTIONS.map((seg) => (
-                  <button
-                    key={seg}
-                    type="button"
-                    onClick={() => setSelected(seg)}
-                    className={`whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-                      selected === seg
-                        ? 'border-brand-400 bg-brand-400/10 text-primary-800'
-                        : 'border-primary-300 text-primary-700 hover:border-primary-500 hover:bg-primary-100'
-                    }`}
-                    style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-                  >
-                    {seg}
-                  </button>
-                ))}
-              </div>
-
-              <p
-                className="mb-1.5 mt-4 text-xs font-medium text-primary-800"
-                style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-              >
-                Add access group (Optional)
-              </p>
-              <div className="relative">
-                <select
-                  className="w-full appearance-none rounded-md border border-primary-300 bg-white px-2.5 py-1.5 pr-7 text-xs text-primary-500"
-                  style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-                  defaultValue=""
-                >
-                  <option value="" disabled>Search for an access group</option>
-                </select>
-                <ChevronDown
-                  size={13}
-                  className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-primary-500"
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <p
-                className="mb-2 text-xs font-medium text-primary-800"
-                style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-              >
-                Enter email address:
-              </p>
-              <input
-                type="email"
-                placeholder="user@example.com"
-                className="w-full rounded-md border border-primary-300 bg-white px-2.5 py-1.5 text-xs text-primary-800 placeholder-primary-500 focus:border-link-400 focus:outline-none focus:ring-1 focus:ring-link-400"
-                style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-              />
-            </>
-          )}
-
-          <button
-            type="button"
-            onClick={() => onSelect(selected)}
-            className="mt-3 w-full rounded-lg bg-brand-400 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/40"
-            style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-          >
-            View as segment
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
-
-/** Floating green bar pinned to the visible bottom of the Published preview showing the active visitor segment. */
-function PublishedViewBar({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) {
-  const [selectorOpen, setSelectorOpen] = useState(false);
-  const [activeSegment, setActiveSegment] = useState<string>(SEGMENT_OPTIONS[0]);
-  const [pos, setPos] = useState<{ left: number; width: number; bottom: number } | null>(null);
-  const pillRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const update = () => {
-      const rect = el.getBoundingClientRect();
-      const visibleBottom = Math.min(rect.bottom, window.innerHeight);
-      setPos({ left: rect.left, width: rect.width, bottom: window.innerHeight - visibleBottom });
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    window.addEventListener('resize', update);
-    return () => { ro.disconnect(); window.removeEventListener('resize', update); };
-  }, [containerRef]);
-
-  if (!pos || typeof document === 'undefined') return null;
-
-  return createPortal(
-    <>
-      <div
-        className="pointer-events-none fixed z-40 flex justify-center"
-        style={{ left: pos.left, width: pos.width, bottom: pos.bottom + 16 }}
-      >
-        <div
-          className="pointer-events-auto flex h-10 w-full max-w-[952px] items-center justify-between rounded-xl px-5 shadow-lg"
-          style={{ backgroundColor: '#0B815A' }}
-        >
-          <div className="flex items-center gap-2.5">
-            <span
-              className="text-[13px] font-medium text-white"
-              style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-            >
-              Viewing active Trust Center as:
-            </span>
-            <button
-              ref={pillRef}
-              type="button"
-              onClick={() => setSelectorOpen((v) => !v)}
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-medium text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-              style={{ backgroundColor: '#07694A' }}
-            >
-              {activeSegment}
-              <ChevronDown size={13} strokeWidth={2} aria-hidden />
-            </button>
-          </div>
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-white transition-colors hover:text-white/80"
-              style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-            >
-              <Share2 size={13} strokeWidth={2} aria-hidden />
-              Share Live URL
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-white transition-colors hover:text-white/80"
-              style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-            >
-              <ExternalLink size={13} strokeWidth={2} aria-hidden />
-              Open in new tab
-            </button>
-          </div>
-        </div>
-      </div>
-      {selectorOpen && (
-        <PublishedSegmentSelectorPopover
-          anchorRef={pillRef}
-          activeSegment={activeSegment}
-          onSelect={(seg) => {
-            setActiveSegment(seg);
-            setSelectorOpen(false);
-          }}
-          onClose={() => setSelectorOpen(false)}
-        />
-      )}
-    </>,
-    document.body,
-  );
-}
-
-/** Popover anchored above the segment pill for the Published view bar. */
-function PublishedSegmentSelectorPopover({
-  anchorRef,
-  activeSegment,
-  onSelect,
-  onClose,
-}: {
-  anchorRef: React.RefObject<HTMLButtonElement | null>;
-  activeSegment: string;
-  onSelect: (segment: string) => void;
-  onClose: () => void;
-}) {
-  const [tab, setTab] = useState<'segment' | 'email'>('segment');
-  const [selected, setSelected] = useState(activeSegment);
-  const [anchor, setAnchor] = useState<{ left: number; bottom: number } | null>(null);
-
-  useEffect(() => {
-    const el = anchorRef.current;
-    if (!el) return;
-    const update = () => {
-      const rect = el.getBoundingClientRect();
-      setAnchor({ left: rect.left, bottom: window.innerHeight - rect.top + 8 });
-    };
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, [anchorRef]);
-
-  if (!anchor) return null;
-
-  return (
-    <>
-      <div className="fixed inset-0 z-[199]" onClick={onClose} />
-      <div
-        className="fixed z-[200] w-[380px] rounded-xl border border-primary-300 bg-white shadow-2xl"
-        style={{ left: anchor.left, bottom: anchor.bottom }}
-      >
-        {/* Toggle tabs — pill-style segmented control */}
-        <div className="px-4 pt-4 pb-3">
-          <div className="flex rounded-lg border border-primary-300 bg-primary-100 p-0.5">
-            <button
-              type="button"
-              onClick={() => setTab('segment')}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                tab === 'segment'
-                  ? 'bg-white text-primary-800 shadow-sm'
-                  : 'text-primary-500 hover:text-primary-700'
-              }`}
-              style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-            >
-              <Users size={13} strokeWidth={2} />
-              User segment
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('email')}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                tab === 'email'
-                  ? 'bg-white text-primary-800 shadow-sm'
-                  : 'text-primary-500 hover:text-primary-700'
-              }`}
-              style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-            >
-              <User size={13} strokeWidth={2} />
-              User email address
-            </button>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="px-4 pb-4">
-          {tab === 'segment' ? (
-            <>
-              <p
-                className="mb-2 text-xs font-medium text-primary-800"
-                style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-              >
-                Select option:
-              </p>
-              <div className="flex gap-1.5">
-                {SEGMENT_OPTIONS.map((seg) => (
-                  <button
-                    key={seg}
-                    type="button"
-                    onClick={() => setSelected(seg)}
-                    className={`whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-                      selected === seg
-                        ? 'border-brand-400 bg-brand-400/10 text-primary-800'
-                        : 'border-primary-300 text-primary-700 hover:border-primary-500 hover:bg-primary-100'
-                    }`}
-                    style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-                  >
-                    {seg}
-                  </button>
-                ))}
-              </div>
-
-              <p
-                className="mb-1.5 mt-4 text-xs font-medium text-primary-800"
-                style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-              >
-                Add access group (Optional)
-              </p>
-              <div className="relative">
-                <select
-                  className="w-full appearance-none rounded-md border border-primary-300 bg-white px-2.5 py-1.5 pr-7 text-xs text-primary-500"
-                  style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-                  defaultValue=""
-                >
-                  <option value="" disabled>Search for an access group</option>
-                </select>
-                <ChevronDown
-                  size={13}
-                  className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-primary-500"
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <p
-                className="mb-2 text-xs font-medium text-primary-800"
-                style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-              >
-                Enter email address:
-              </p>
-              <input
-                type="email"
-                placeholder="user@example.com"
-                className="w-full rounded-md border border-primary-300 bg-white px-2.5 py-1.5 text-xs text-primary-800 placeholder-primary-500 focus:border-link-400 focus:outline-none focus:ring-1 focus:ring-link-400"
-                style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-              />
-            </>
-          )}
-
-          <button
-            type="button"
-            onClick={() => onSelect(selected)}
-            className="mt-3 w-full rounded-lg bg-brand-400 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/40"
-            style={{ fontFamily: "'Neue Montreal', sans-serif" }}
-          >
-            View as segment
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
-
-/** Spot illustration for the empty-state overlay (patterns.svg from .Empty States). */
+/** Spot illustration for the **Draft** empty-state overlay (inline SVG, patterns.svg from .Empty States). */
 function EmptyStateIllustration() {
   return (
     <svg width="104" height="104" viewBox="0 0 104 104" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
@@ -881,13 +497,68 @@ function EmptyStateIllustration() {
   );
 }
 
-/** Empty state shown in draft preview when there's no draft and no published Trust Center. */
-function DraftEmptySkeleton({ onCreateDraft }: { onCreateDraft: () => void }) {
+/**
+ * Published-tab empty state: no visitor-live Trust Center (`Imagery/no-results.png`).
+ * Draft empty state keeps `EmptyStateIllustration` SVG.
+ * Figma: Trust Center Vision HQ > Designer > Published preview empty state
+ */
+function PublishedEmptyStateIllustration() {
+  const src = `${import.meta.env.BASE_URL}Imagery/no-results.png`;
+  return (
+    <img
+      src={src}
+      alt=""
+      width={112}
+      height={112}
+      className="mx-auto h-[112px] w-[112px] object-contain"
+      decoding="async"
+    />
+  );
+}
+
+/**
+ * Clipboard illustration: Draft tab while visitor-live but no draft (e.g. after publish consumed the draft).
+ * Asset: `public/Imagery/draft-tab-live-no-draft-clipboard.png`
+ * Figma: Trust Center Vision HQ > Designer > Draft preview > No draft while live
+ */
+function LiveNoDraftEmptyIllustration() {
+  const src = `${import.meta.env.BASE_URL}Imagery/draft-tab-live-no-draft-clipboard.png`;
+  return (
+    <img
+      src={src}
+      alt=""
+      width={112}
+      height={112}
+      className="mx-auto h-[112px] w-[112px] object-contain"
+      decoding="async"
+    />
+  );
+}
+
+/**
+ * Shared grey skeleton + centered white card for draft-tab empty states (cold start vs live-without-draft).
+ */
+function DraftEmptyStateLayout({
+  illustration,
+  title,
+  description,
+  onCreateDraft,
+}: {
+  illustration: ReactNode;
+  title: string;
+  description: string;
+  onCreateDraft: () => void;
+}) {
+  const cardTextStyle = {
+    fontSize: '14px',
+    lineHeight: '135%',
+    color: '#204156',
+    fontFamily: "'Neue Montreal', sans-serif",
+  } as const;
+
   return (
     <div className="relative px-4 pb-10 pt-0 sm:px-6 md:px-8">
-      {/* Skeleton background — faded to look inactive but with visible detail */}
       <div className="mx-auto max-w-[1360px] overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-primary-400/50 opacity-60">
-        {/* Nav bar skeleton */}
         <div className="flex h-[60px] items-center gap-4 bg-primary-400/30 px-6">
           <div className="h-8 w-8 rounded bg-primary-400/50" />
           <div className="h-4 w-24 rounded bg-primary-400/50" />
@@ -898,11 +569,7 @@ function DraftEmptySkeleton({ onCreateDraft }: { onCreateDraft: () => void }) {
             <div className="h-8 w-24 rounded-full bg-primary-400/35" />
           </div>
         </div>
-
-        {/* Banner skeleton */}
         <div className="h-[200px] w-full bg-primary-300/60" />
-
-        {/* Identity section skeleton */}
         <div className="mx-10 pt-10 pb-8">
           <div className="flex gap-10">
             <div className="min-w-0 flex-1 space-y-4">
@@ -930,10 +597,7 @@ function DraftEmptySkeleton({ onCreateDraft }: { onCreateDraft: () => void }) {
             </div>
           </div>
         </div>
-
         <div className="mx-10 border-t border-primary-300/40" />
-
-        {/* Certifications skeleton */}
         <div className="mx-10 py-10 space-y-5">
           <div className="h-5 w-28 rounded bg-primary-300/50" />
           <div className="flex gap-4">
@@ -945,10 +609,7 @@ function DraftEmptySkeleton({ onCreateDraft }: { onCreateDraft: () => void }) {
             ))}
           </div>
         </div>
-
         <div className="mx-10 border-t border-primary-300/40" />
-
-        {/* Documents section skeleton */}
         <div className="mx-10 py-10 space-y-5">
           <div className="h-5 w-52 rounded bg-primary-300/50" />
           <div className="flex gap-3">
@@ -965,10 +626,7 @@ function DraftEmptySkeleton({ onCreateDraft }: { onCreateDraft: () => void }) {
             ))}
           </div>
         </div>
-
         <div className="mx-10 border-t border-primary-300/40" />
-
-        {/* Philosophy skeleton */}
         <div className="mx-10 py-10 space-y-4">
           <div className="h-5 w-32 rounded bg-primary-300/50" />
           <div className="space-y-2">
@@ -977,26 +635,17 @@ function DraftEmptySkeleton({ onCreateDraft }: { onCreateDraft: () => void }) {
             <div className="h-3.5 w-3/4 rounded bg-primary-300/35" />
           </div>
         </div>
-
-        {/* Bottom spacer */}
         <div className="h-20" />
       </div>
 
-      {/* Centered overlay card */}
       <div className="pointer-events-none absolute inset-0 flex items-start justify-center" style={{ paddingTop: '18%' }}>
         <div className="pointer-events-auto flex w-[420px] flex-col items-center rounded-xl bg-white px-10 pb-10 pt-12 text-center shadow-lg ring-1 ring-primary-200">
-          <EmptyStateIllustration />
-          <h3
-            className="mt-6 font-medium"
-            style={{ fontSize: '14px', lineHeight: '135%', color: '#204156', fontFamily: "'Neue Montreal', sans-serif" }}
-          >
-            There is no Trust Center Draft.
+          {illustration}
+          <h3 className="mt-6 font-medium" style={cardTextStyle}>
+            {title}
           </h3>
-          <p
-            className="mt-2 max-w-[320px]"
-            style={{ fontSize: '14px', lineHeight: '135%', color: '#204156', fontFamily: "'Neue Montreal', sans-serif", fontWeight: 400 }}
-          >
-            Start a draft now, and share with a draft preview link.
+          <p className="mt-2 max-w-[320px]" style={{ ...cardTextStyle, fontWeight: 400 }}>
+            {description}
           </p>
           <button
             type="button"
@@ -1008,6 +657,30 @@ function DraftEmptySkeleton({ onCreateDraft }: { onCreateDraft: () => void }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Empty state: Draft tab, no draft, not visitor-live (cold start or unpublished). */
+function DraftEmptySkeleton({ onCreateDraft }: { onCreateDraft: () => void }) {
+  return (
+    <DraftEmptyStateLayout
+      illustration={<EmptyStateIllustration />}
+      title="There is no Trust Center Draft."
+      description="Start a draft now, and share with a draft preview link."
+      onCreateDraft={onCreateDraft}
+    />
+  );
+}
+
+/** Empty state: Draft tab, visitor-live, no draft file (layout/imagery edits need a new draft). */
+function DraftEmptySkeletonLiveNoDraft({ onCreateDraft }: { onCreateDraft: () => void }) {
+  return (
+    <DraftEmptyStateLayout
+      illustration={<LiveNoDraftEmptyIllustration />}
+      title="Your Trust center is currently live"
+      description="To make edits to section layout or imagery, start a draft."
+      onCreateDraft={onCreateDraft}
+    />
   );
 }
 
@@ -1115,7 +788,7 @@ function PublishedEmptySkeleton({ hasEverPublished, onViewDraft }: { hasEverPubl
       {/* Centered overlay card on top of the skeleton */}
       <div className="pointer-events-none absolute inset-0 flex items-start justify-center" style={{ paddingTop: '18%' }}>
         <div className="pointer-events-auto flex w-[420px] flex-col items-center rounded-xl bg-white px-10 pb-10 pt-12 text-center shadow-lg ring-1 ring-primary-200">
-          <EmptyStateIllustration />
+          <PublishedEmptyStateIllustration />
           <h3
             className="mt-6 font-medium"
             style={{ fontSize: '14px', lineHeight: '135%', color: '#204156', fontFamily: "'Neue Montreal', sans-serif" }}

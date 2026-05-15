@@ -8,7 +8,7 @@
     "dev:clean": "rm -rf node_modules/.vite && vite",
     "build": "tsc -b && vite build",
     "postbuild": "node ./scripts/copy-spa-fallback.mjs",
-    "build:gh-pages": "VITE_BASE_PATH=/staging-prototype-v1/ npm run build",
+    "build:gh-pages": "VITE_BASE_PATH=/tcstaging-v4-cursor/ npm run build",
     "lint": "eslint .",
     "preview": "vite preview",
     "publish:temp-md": "npm run build && node scripts/publish-temp-md.mjs"

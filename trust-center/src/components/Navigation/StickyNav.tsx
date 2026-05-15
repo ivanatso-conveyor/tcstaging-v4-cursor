@@ -18,6 +18,11 @@ export interface StickyNavProps {
   onAskAI?: (query: string) => void;
   /** When set, overrides context imagery for square logo (draft vs published preview). */
   savedTrustCenterImageryOverride?: SavedTrustCenterImagery | null;
+  /**
+   * When true (default), uses `sticky top-0` so the bar pins while the window or outer page scrolls.
+   * When false (designer preview), the parent column pins this bar; only inner content scrolls.
+   */
+  useViewportSticky?: boolean;
 }
 
 export default function StickyNav({
@@ -25,6 +30,7 @@ export default function StickyNav({
   onDocumentClick,
   onAskAI,
   savedTrustCenterImageryOverride,
+  useViewportSticky = true,
 }: StickyNavProps) {
   const copy = useTrustCenterCopy();
   const { state } = useDesigner();
@@ -36,7 +42,7 @@ export default function StickyNav({
 
   return (
     <div
-      className="h-[60px] flex items-center px-4 sticky top-0 z-50"
+      className={`z-50 flex h-[60px] shrink-0 items-center px-4 ${useViewportSticky ? 'sticky top-0' : 'relative'}`}
       style={{
         backgroundColor: 'var(--trust-center-header-color, #333366)',
         borderBottom: '1px solid var(--color-grey-600)',

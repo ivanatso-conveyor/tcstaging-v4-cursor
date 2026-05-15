@@ -38,10 +38,13 @@
  * | Labels | Title Case headings; caps mainly for status pills |
  */
 
-import { Fragment, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { computeDraftDiff } from '../../utils/draftDiff';
 import TrustCenterModalBackdrop from '../TrustCenter/TrustCenterModalBackdrop';
+import { PublishLiveSuccessToast, PUBLISH_LIVE_SUCCESS_TOAST_DURATION_MS } from './PublishLiveSuccessToast';
+import { UnpublishTrustCenterToast } from './UnpublishTrustCenterToast';
+import { DESIGNER_FEEDBACK_TOAST_DURATION_MS } from '../../constants/designerFeedbackToast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faEyeSlash, faGripLines, faLink } from '@fortawesome/free-solid-svg-icons';
 import { getPublishedPresentation, useDesigner } from '../../context/DesignerContext';
@@ -50,18 +53,19 @@ import { useTrustCenterCopy } from '../../hooks/useTrustCenterCopy';
 import {
   LAYOUT_SECTION_IDS,
   LAYOUT_SECTION_LABELS,
+  TRUST_CENTER_BANNER_VISIBILITY_ID,
   type LayoutSectionId,
 } from '../../constants/layoutSectionOrder';
 import { formatTrustCenterName } from '../../constants/designerDraftAuthor';
+import { DESIGNER_RIGHT_PANEL_WIDTH_PX } from '../../constants/designerLayout';
 import {
   LANGUAGE_MENU,
-  previewLocaleLabel,
   PRIMARY_TRUST_CENTER_LOCALE,
   type PreviewLocale,
 } from '../../constants/previewLocale';
 import { uiAssets } from '../../constants/uiAssets';
 import { icons } from '../../constants/icons';
-import { ChevronDown, ChevronUp, Copy, GripVertical, ImageIcon, Info, MoreHorizontal, MoreVertical, Pencil, Plus, TriangleAlert, Undo2, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, ExternalLink, EyeOff, Globe, GripVertical, ImageIcon, Info, MoreVertical, Pencil, Plus, TriangleAlert, Undo2, X } from 'lucide-react';
 import { normalizeTrustCenterImagery, type SavedTrustCenterImagery } from '../../utils/trustCenterImageryMerge';
 import CompanyProfileModal from '../TrustCenter/CompanyProfileModal';
 import QuickLinksSettingsModal from '../TrustCenter/QuickLinksSettingsModal';
@@ -83,6 +87,7 @@ import NewAnnouncementModal from '../TrustCenter/NewAnnouncementModal';
 import ShareViaInviteModal from '../TrustCenter/ShareViaInviteModal';
 import { ReviewingProductFilterProvider } from '../../contexts/ReviewingProductFilterContext';
 import TrustCenterAgentConfigurationSection from './TrustCenterAgentConfigurationSection';
+import PublishedPublishGuideCard from './PublishedPublishGuideCard';
 
 /**
  * Draftable Content accordion (Imagery / Branding shortcuts + link to Published live edits).
@@ -124,31 +129,73 @@ export default function RightPanel({ workspaceTab, onWorkspaceTabChange }: Right
   // When drafts are cleared, stay on draft tab (no longer force to published).
 
   const prevPublishedRef = useRef(state.publishedSnapshot);
+  const prevDraftsLenForTabSyncRef = useRef(state.drafts.length);
+  const anyVisitorLiveOnPublished = (snap: typeof state.publishedSnapshot) =>
+    LANGUAGE_MENU.some((item) => snap.localeLive[item.locale]);
+
   useEffect(() => {
-    if (state.publishedSnapshot !== prevPublishedRef.current) {
-      onWorkspaceTabChange('published');
+    const pubChanged = state.publishedSnapshot !== prevPublishedRef.current;
+    if (pubChanged) {
+      const prevSnap = prevPublishedRef.current;
+      const wasLive = anyVisitorLiveOnPublished(prevSnap);
+      const nowLive = anyVisitorLiveOnPublished(state.publishedSnapshot);
+      const draftCountDecreased = state.drafts.length < prevDraftsLenForTabSyncRef.current;
+
+      if (draftCountDecreased) {
+        onWorkspaceTabChange('published');
+      } else if (wasLive && !nowLive) {
+        onWorkspaceTabChange('draft');
+      } else if (!wasLive && nowLive) {
+        onWorkspaceTabChange('published');
+      }
+      // Cold start / migration: snapshot ref can change with visitor-live still false for all locales.
+      // Do not switch workspace tab here, so refresh stays on Draft like a user still editing before first publish.
       prevPublishedRef.current = state.publishedSnapshot;
     }
-  }, [state.publishedSnapshot]);
+    prevDraftsLenForTabSyncRef.current = state.drafts.length;
+  }, [state.publishedSnapshot, state.drafts.length, onWorkspaceTabChange]);
 
   // Toast: announce when a draft auto-creates from the user's first edit (drafts.length 0 -> 1).
   const prevDraftsCountRef = useRef(state.drafts.length);
+  const prevVisitorLiveOnPublishedRef = useRef(anyVisitorLiveOnPublished(state.publishedSnapshot));
   const [draftStartedToast, setDraftStartedToast] = useState(false);
   useEffect(() => {
+    const hasVisitorLive = anyVisitorLiveOnPublished(state.publishedSnapshot);
+
     if (prevDraftsCountRef.current === 0 && state.drafts.length === 1) {
+      const hadVisitorLiveBefore = prevVisitorLiveOnPublishedRef.current;
+      const skipDraftStartedBecauseUnpublish = hadVisitorLiveBefore && !hasVisitorLive;
+      prevDraftsCountRef.current = state.drafts.length;
+      prevVisitorLiveOnPublishedRef.current = hasVisitorLive;
+      if (skipDraftStartedBecauseUnpublish) return undefined;
       setDraftStartedToast(true);
       const t = window.setTimeout(() => setDraftStartedToast(false), 2500);
-      prevDraftsCountRef.current = state.drafts.length;
       return () => window.clearTimeout(t);
     }
-    prevDraftsCountRef.current = state.drafts.length;
-  }, [state.drafts.length]);
 
-  /** True when no published Trust Center is live for visitors yet (pre-launch / first-time setup). */
-  const noPublishedTC = !LANGUAGE_MENU.some((item) => getPublishedPresentation(state).localeLive[item.locale]);
+    prevDraftsCountRef.current = state.drafts.length;
+    prevVisitorLiveOnPublishedRef.current = hasVisitorLive;
+    return undefined;
+  }, [state.drafts.length, state.publishedSnapshot]);
+
+  const publishedForScope = getPublishedPresentation(state);
+  /**
+   * True when no locale on the published snapshot is currently visitor-live.
+   * Enables Section Layout row pencils in draft mode when:
+   *   1. Never published (fresh workspace), OR
+   *   2. Previously published but now unpublished (user toggled off the live TC).
+   * Once any locale is visitor-live again, pencils are hidden and edits use the
+   * Published tab "Edit Live Content" flow instead.
+   */
+  const noPublishedTC = !LANGUAGE_MENU.some(
+    (item) => publishedForScope.localeLive[item.locale],
+  );
 
   /** Section edit modal triggered from pencil icons in the Section Layout (draft mode, no published TC). */
   const [draftEditSection, setDraftEditSection] = useState<string | null>(null);
+
+  const [unpublishToastVisible, setUnpublishToastVisible] = useState(false);
+  const [unpublishToastDraftName, setUnpublishToastDraftName] = useState('');
 
   const switchWorkspaceTab = (tab: 'draft' | 'published') => {
     onWorkspaceTabChange(tab);
@@ -157,6 +204,13 @@ export default function RightPanel({ workspaceTab, onWorkspaceTabChange }: Right
     } else {
       setPreviewMode('draft');
     }
+  };
+
+  const handleUnpublishSuccess = (draftName: string) => {
+    switchWorkspaceTab('draft');
+    setUnpublishToastDraftName(draftName);
+    setUnpublishToastVisible(true);
+    window.setTimeout(() => setUnpublishToastVisible(false), DESIGNER_FEEDBACK_TOAST_DURATION_MS);
   };
 
   return (
@@ -169,7 +223,7 @@ export default function RightPanel({ workspaceTab, onWorkspaceTabChange }: Right
               style={{ animation: 'fadeInOut 2.5s ease-out forwards' }}
               className="pointer-events-none fixed left-1/2 top-16 z-[300]"
             >
-              <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-primary-900 px-4 py-2 text-xs font-medium text-white shadow-lg">
+              <div className="pointer-events-auto flex items-center gap-2 rounded-lg bg-primary-900 px-4 py-2.5 text-xs font-medium text-white shadow-lg">
                 <span className="h-1.5 w-1.5 rounded-full bg-brand-400" aria-hidden />
                 Draft started
               </div>
@@ -177,20 +231,27 @@ export default function RightPanel({ workspaceTab, onWorkspaceTabChange }: Right
             document.body,
           )
         : null}
-    <div className="flex h-full min-h-0 w-[360px] shrink-0 flex-col self-stretch border-l border-primary-400 bg-white">
+      <UnpublishTrustCenterToast visible={unpublishToastVisible} draftName={unpublishToastDraftName} />
+    <div
+      className="flex h-full min-h-0 shrink-0 flex-col self-stretch bg-primary-100"
+      style={{ width: DESIGNER_RIGHT_PANEL_WIDTH_PX }}
+    >
       {workspaceTab === 'draft' ? (
         <>
-          <div className="z-10 shrink-0 border-b border-primary-400 bg-white">
-            <div className="px-5 pt-4 pb-0">
+          {/* Card 1: Draft/Published tabs + draft metadata rows — no pl: preview already has horizontal pad; avoids double grey gutter */}
+          <div className="z-10 shrink-0 pb-1.5 pl-0 pr-3 pt-3">
+            {/* No overflow-hidden: kebab menus in DraftStagingSection use position absolute and must paint past this card edge. */}
+            <div className="rounded-lg border border-primary-400 bg-white">
               <DesignerWorkspaceTabList value={workspaceTab} onChange={switchWorkspaceTab} />
+              <DraftStagingSection />
             </div>
-            <DraftStagingSection />
           </div>
+          {/* Card 2: All editor accordions in one scrollable card */}
           <div
             id="draft-editor-settings"
-            className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+            className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-3 pl-0 pr-3 pt-0"
           >
-            <div>
+            <div className="overflow-hidden rounded-lg border border-primary-400 bg-white">
               <CustomizeLayoutSection
                 sectionOrder={state.sectionOrder}
                 sectionVisibility={state.sectionVisibility}
@@ -221,7 +282,7 @@ export default function RightPanel({ workspaceTab, onWorkspaceTabChange }: Right
         <PublishedTabContent
           workspaceTab={workspaceTab}
           switchWorkspaceTab={switchWorkspaceTab}
-          onWorkspaceTabChange={onWorkspaceTabChange}
+          onUnpublishSuccess={handleUnpublishSuccess}
         />
       )}
     </div>
@@ -235,10 +296,12 @@ export default function RightPanel({ workspaceTab, onWorkspaceTabChange }: Right
     ) : draftEditSection === 'badges' ? (
       <BadgesSettingsModal onClose={() => setDraftEditSection(null)} />
     ) : draftEditSection === 'find-answer' ? (
-      <DocumentsSearchModal
-        initialPanelKey="documents"
-        onClose={() => setDraftEditSection(null)}
-      />
+      <ReviewingProductFilterProvider>
+        <DocumentsSearchModal
+          initialPanelKey="documents"
+          onClose={() => setDraftEditSection(null)}
+        />
+      </ReviewingProductFilterProvider>
     ) : draftEditSection === 'philosophy' ? (
       <PhilosophySettingsModal onClose={() => setDraftEditSection(null)} />
     ) : draftEditSection === 'quick-summary' ? (
@@ -268,7 +331,13 @@ export default function RightPanel({ workspaceTab, onWorkspaceTabChange }: Right
   );
 }
 
-/** Draft / Published underline tabs for the right panel workspace switcher. */
+/**
+ * DesignerWorkspaceTabList
+ * Draft and Published tabs for the right panel white card. Active tab shows a teal underline.
+ * Each label has a small status dot: draft uses amber when at least one draft exists, gray otherwise.
+ * Published uses teal (live) when any locale is visitor-live, gray otherwise.
+ * Figma: Trust Center Vision HQ > Designer Page > Right Sidebar > Draft / Published tabs
+ */
 function DesignerWorkspaceTabList({
   value,
   onChange,
@@ -276,6 +345,11 @@ function DesignerWorkspaceTabList({
   value: 'draft' | 'published';
   onChange: (tab: 'draft' | 'published') => void;
 }) {
+  const { state } = useDesigner();
+  const pub = getPublishedPresentation(state);
+  const hasActiveDraft = state.drafts.length > 0;
+  const hasActivePublished = LANGUAGE_MENU.some((item) => pub.localeLive[item.locale]);
+
   return (
     <div
       className="flex w-full border-b border-primary-400"
@@ -287,15 +361,19 @@ function DesignerWorkspaceTabList({
         role="tab"
         aria-selected={value === 'draft'}
         onClick={() => onChange('draft')}
-        className={`relative flex-1 pb-2 pt-1 text-center text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-800/25 ${
+        className={`relative flex flex-1 items-center justify-center gap-1.5 pb-2.5 pt-3 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-800/25 ${
           value === 'draft'
             ? 'text-primary-800'
             : 'text-primary-500 hover:text-primary-700'
         }`}
       >
+        <span
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${hasActiveDraft ? 'bg-designer-draft-indicator' : 'bg-primary-400'}`}
+          aria-hidden
+        />
         Draft
         {value === 'draft' ? (
-          <span className="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-primary-800" aria-hidden />
+          <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-brand-400" aria-hidden />
         ) : null}
       </button>
       <button
@@ -303,49 +381,36 @@ function DesignerWorkspaceTabList({
         role="tab"
         aria-selected={value === 'published'}
         onClick={() => onChange('published')}
-        className={`relative flex-1 pb-2 pt-1 text-center text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-800/25 ${
+        className={`relative flex flex-1 items-center justify-center gap-1.5 pb-2.5 pt-3 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-800/25 ${
           value === 'published'
             ? 'text-primary-800'
             : 'text-primary-500 hover:text-primary-700'
         }`}
       >
+        <span
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${hasActivePublished ? 'bg-brand-400' : 'bg-primary-400'}`}
+          aria-hidden
+        />
         Published
         {value === 'published' ? (
-          <span className="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-primary-800" aria-hidden />
+          <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-brand-400" aria-hidden />
         ) : null}
       </button>
     </div>
   );
 }
 
-/** "Publish to..." split-style dropdown for the staging card. Disabled in empty state. */
-function PublishDropdownButton({ disabled = false }: { disabled?: boolean }) {
-  const { state, isActiveDraftDirty } = useDesigner();
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const isDisabled = disabled || !isActiveDraftDirty || state.drafts.length === 0;
-
-  return (
-    <span className="relative inline-flex shrink-0">
-      <button
-        type="button"
-        disabled={isDisabled}
-        onClick={() => setConfirmOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-[3px] bg-brand-400 px-2.5 py-1 text-xs font-semibold text-white shadow-[0px_1px_3px_0px_rgba(0,0,0,0.05)] transition-colors hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/40 disabled:cursor-not-allowed disabled:bg-brand-400/50 disabled:text-white disabled:shadow-none"
-      >
-        <span>Publish Live URL</span>
-      </button>
-      {confirmOpen ? (
-        <PublishConfirmModal
-          goLive
-          onClose={() => setConfirmOpen(false)}
-        />
-      ) : null}
-    </span>
-  );
-}
-
-/** Confirmation modal for "Publish to preview link" / "Publish live" with diff list and changelog input. */
-function PublishConfirmModal({ goLive, onClose }: { goLive: boolean; onClose: () => void }) {
+/** Confirmation modal for "Publish to preview link" / publish draft to live URL with diff list and changelog input. */
+export function PublishConfirmModal({
+  goLive,
+  onClose,
+  onPublishLiveSuccess,
+}: {
+  goLive: boolean;
+  onClose: () => void;
+  /** Called after a successful **live** publish (visitor-visible URL). Not used for preview-link-only publish. */
+  onPublishLiveSuccess?: () => void;
+}) {
   const { state, publishActiveDraft } = useDesigner();
   const [changelogNote, setChangelogNote] = useState('');
   const activeDraft = state.drafts.find((d) => d.id === state.activeDraftId);
@@ -364,10 +429,9 @@ function PublishConfirmModal({ goLive, onClose }: { goLive: boolean; onClose: ()
 
   if (typeof document === 'undefined') return null;
 
-  const title = goLive ? 'Publish Live URL?' : 'Publish to draft preview link?';
-  const subtitle = goLive
-    ? 'Saves changes and publishes a branded URL visible to visitors.'
-    : 'Saves changes to the sharable draft preview link only. Visitor visibility is unchanged.';
+  const title = goLive ? 'Publish Draft to Live URL?' : 'Publish to draft preview link?';
+  const previewLinkOnlySubtitle =
+    'Saves changes to the sharable draft preview link only. Visitor visibility is unchanged.';
   const confirmLabel = goLive ? 'Publish Live URL' : 'Publish to draft preview link';
   const PRELAUNCH_URL = 'https://pr-3348.preview.chq';
   const [linkCopied, setLinkCopied] = useState(false);
@@ -393,13 +457,16 @@ function PublishConfirmModal({ goLive, onClose }: { goLive: boolean; onClose: ()
             {title}
           </h2>
           <p className="mb-4 text-xs leading-relaxed text-primary-700">
-            {subtitle}
             {goLive ? (
               <>
-                {' '}Publish to{' '}
+                The changes below will be published to your live URL{' '}
                 <span className="font-medium text-link-400">trust.mediacore.com</span>
+                {' '}
+                and be visible to visitors.
               </>
-            ) : null}
+            ) : (
+              previewLinkOnlySubtitle
+            )}
           </p>
 
           {draftChanges.length > 0 ? (
@@ -463,6 +530,9 @@ function PublishConfirmModal({ goLive, onClose }: { goLive: boolean; onClose: ()
               className="rounded bg-brand-400 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-600"
               onClick={() => {
                 publishActiveDraft(changelogNote, { goLive });
+                if (goLive) {
+                  onPublishLiveSuccess?.();
+                }
                 onClose();
               }}
             >
@@ -476,157 +546,35 @@ function PublishConfirmModal({ goLive, onClose }: { goLive: boolean; onClose: ()
   );
 }
 
+export { PublishLiveSuccessToast, PUBLISH_LIVE_SUCCESS_TOAST_DURATION_MS };
+
+/**
+ * Flat draft header rows directly under the Draft/Published tabs.
+ * Shows Draft Name, Share Preview, and Change Log as definition-list style rows on white.
+ * When no draft exists, rows show placeholder values.
+ * Figma: Designer > Draft panel top bar (May 2026 flat mockup).
+ */
 function DraftStagingSection() {
-  const { state, setPreviewMode, selectDraft, renameDraft, deleteDraft } = useDesigner();
+  const { state, setPreviewMode, selectDraft, renameDraft, deleteDraft, revertDraftField, createDraft } = useDesigner();
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
-  if (state.drafts.length === 0) {
-    return (
-      <div className="space-y-3 border-b border-primary-400 bg-primary-100 px-5 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-primary-800">Drafted changes</p>
-          <PublishDropdownButton disabled />
-        </div>
-        <p className="text-xs leading-relaxed text-primary-700">
-          No drafted changes. Start by editing below.
-        </p>
-        {state.previewLocale !== 'en' ? (
-          <p className="text-[11px] leading-snug text-primary-600">
-            You are previewing copy in{' '}
-            <span className="font-medium text-primary-800">{previewLocaleLabel(state.previewLocale)}</span>.
-          </p>
-        ) : null}
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] text-primary-600">Share draft preview link</span>
-          <span className="flex min-w-0 items-center gap-1">
-            <a
-              href="https://pr-3348.preview.chq"
-              target="_blank"
-              rel="noreferrer"
-              className="truncate text-[11px] text-link-400 hover:underline"
-            >
-              pr-3348.preview.chq
-            </a>
-            <CopyUrlButton url="https://pr-3348.preview.chq" label="Copy pre-launch link" />
-          </span>
-        </div>
-      </div>
-    );
-  }
-  // Active draft branch (one draft exists)
-  return (
-    <DraftStagingSectionWithDraft
-      state={state}
-      editingDraftId={editingDraftId}
-      setEditingDraftId={setEditingDraftId}
-      editingName={editingName}
-      setEditingName={setEditingName}
-      setPreviewMode={setPreviewMode}
-      selectDraft={selectDraft}
-      renameDraft={renameDraft}
-      deleteDraft={deleteDraft}
-    />
-  );
-}
+  const draft = state.drafts[0] ?? null;
 
-function DraftStagingSectionWithDraft({
-  state,
-  editingDraftId,
-  setEditingDraftId,
-  editingName,
-  setEditingName,
-  setPreviewMode,
-  selectDraft,
-  renameDraft,
-  deleteDraft,
-}: {
-  state: ReturnType<typeof useDesigner>['state'];
-  editingDraftId: string | null;
-  setEditingDraftId: (id: string | null) => void;
-  editingName: string;
-  setEditingName: (s: string) => void;
-  setPreviewMode: (m: 'draft' | 'published') => void;
-  selectDraft: (id: string) => void;
-  renameDraft: (id: string, name: string) => void;
-  deleteDraft: (id: string) => void;
-}) {
-  return (
-    <div className="space-y-3 border-b border-primary-400 bg-primary-100 px-5 py-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-primary-800">Drafted changes</p>
-        <PublishDropdownButton />
-      </div>
-      <ul className="space-y-2" role="list">
-        {state.drafts.map((d) => (
-          <DraftRow
-            key={d.id}
-            draft={d}
-            isActive={d.id === state.activeDraftId}
-            onlyDraft={state.drafts.length === 1}
-            isEditing={editingDraftId === d.id}
-            editingName={editingName}
-            setEditingDraftId={setEditingDraftId}
-            setEditingName={setEditingName}
-            setPreviewMode={setPreviewMode}
-            selectDraft={selectDraft}
-            renameDraft={renameDraft}
-            deleteDraft={deleteDraft}
-          />
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** Compact draft row that mirrors the Published row pattern: header + click-to-expand body with changes list. */
-function DraftRow({
-  draft,
-  isActive,
-  onlyDraft,
-  isEditing,
-  editingName,
-  setEditingDraftId,
-  setEditingName,
-  setPreviewMode,
-  selectDraft,
-  renameDraft,
-  deleteDraft,
-}: {
-  draft: { id: string; name: string; updatedAt: number };
-  isActive: boolean;
-  onlyDraft: boolean;
-  isEditing: boolean;
-  editingName: string;
-  setEditingDraftId: (id: string | null) => void;
-  setEditingName: (s: string) => void;
-  setPreviewMode: (m: 'draft' | 'published') => void;
-  selectDraft: (id: string) => void;
-  renameDraft: (id: string, name: string) => void;
-  deleteDraft: (id: string) => void;
-}) {
-  const { state, revertDraftField } = useDesigner();
   const publishedPresentation = getPublishedPresentation(state);
-  const autosavedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(draft.updatedAt));
   const diff = useMemo(() => {
+    if (!draft) return [];
     const d = state.drafts.find((x) => x.id === draft.id);
     return d ? computeDraftDiff(d.payload, publishedPresentation) : [];
-  }, [state.drafts, draft.id, publishedPresentation]);
+  }, [state.drafts, draft?.id, publishedPresentation]);
 
-  const [detailOpen, setDetailOpen] = useState(true);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const diffScrollRef = useRef<HTMLDivElement | null>(null);
 
-  // When the diff changes (added, removed, or updated), scroll the changes body
-  // to the bottom so the user gets a visible confirmation that the edit registered.
-  const diffSignature = diff.map((e) => e.id).join('|');
-  useEffect(() => {
-    const el = diffScrollRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, [diffSignature]);
+  const isEditing = draft != null && editingDraftId === draft.id;
 
   const startRename = () => {
+    if (!draft) return;
     selectDraft(draft.id);
     setMenuOpen(false);
     setEditingDraftId(draft.id);
@@ -634,210 +582,292 @@ function DraftRow({
   };
 
   const onDelete = () => {
+    if (!draft) return;
     setMenuOpen(false);
-    if (onlyDraft && !window.confirm('Remove this draft and return to published-only view?')) {
-      return;
-    }
-    if (!onlyDraft && !window.confirm('Delete this draft? Unpublished changes on this branch will be lost.')) {
-      return;
-    }
+    if (state.drafts.length === 1 && !window.confirm('Remove this draft and return to published-only view?')) return;
+    if (state.drafts.length > 1 && !window.confirm('Delete this draft? Unpublished changes on this branch will be lost.')) return;
     deleteDraft(draft.id);
   };
 
+  const changeLogSummaryRight =
+    diff.length === 0
+      ? '0 changes'
+      : diff.length === 1
+        ? '1 Layout Change'
+        : `${diff.length} Layout Changes`;
+
   return (
-    <li>
-      <div
-        className={
-          isActive
-            ? 'rounded-lg border border-brand-400 bg-white shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)]'
-            : 'rounded-lg border border-primary-200 bg-white'
-        }
-      >
-        <div className="flex min-h-[36px] items-stretch border-b border-primary-100">
-          <button
-            type="button"
-            aria-expanded={detailOpen}
-            aria-label={`${draft.name}. Click to ${detailOpen ? 'collapse' : 'expand'} changes.`}
-            className="flex min-w-0 flex-1 flex-col items-stretch gap-0.5 px-2.5 py-2 text-left transition-colors hover:bg-primary-50"
-            onClick={() => {
-              if (isEditing) return;
-              setDetailOpen((v) => !v);
-            }}
-          >
-            {isEditing ? (
-              <input
-                type="text"
-                autoFocus
-                className="min-w-0 rounded border border-primary-400 bg-white px-1.5 py-0.5 text-xs font-medium text-primary-800 outline-none focus:border-link-400 focus:ring-1 focus:ring-link-400"
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-                onBlur={() => {
-                  if (editingName.trim()) renameDraft(draft.id, editingName);
-                  setEditingDraftId(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    if (editingName.trim()) renameDraft(draft.id, editingName);
-                    setEditingDraftId(null);
-                  }
-                  if (e.key === 'Escape') {
-                    setEditingDraftId(null);
-                  }
-                }}
-              />
-            ) : (
-              <span
-                className="min-w-0 cursor-text truncate text-xs font-medium text-primary-800 hover:underline hover:underline-offset-2"
-                role="button"
-                tabIndex={0}
-                title="Click to rename"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditingDraftId(draft.id);
-                  setEditingName(draft.name);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.stopPropagation();
-                    setEditingDraftId(draft.id);
-                    setEditingName(draft.name);
-                  }
-                }}
-              >
-                {draft.name}
-              </span>
-            )}
-            <span className="truncate text-[10px] font-normal leading-tight text-primary-600">
-              Autosaved {autosavedTime} · {diff.length === 0 ? 'No staged changes' : `${diff.length} ${diff.length === 1 ? 'change' : 'changes'}`}
-            </span>
-          </button>
-          <div className="relative flex shrink-0 items-center border-l border-primary-100 px-1">
+    <div className="flex flex-col rounded-b-lg bg-white px-5 py-3">
+      {/* ── Draft Name row ── */}
+      <div className="flex h-8 items-center justify-between gap-2">
+        <span className="shrink-0 text-xs text-primary-600">Draft Name:</span>
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+          {draft == null ? (
             <button
               type="button"
-              aria-label={`More actions for ${draft.name}`}
-              className="rounded p-1 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMenuOpen((v) => !v);
+              onClick={() => createDraft()}
+              className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs font-medium text-link-400 transition-colors hover:text-link-400/80 hover:underline hover:underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link-400/30"
+            >
+              <Plus size={12} strokeWidth={2.5} className="shrink-0" aria-hidden />
+              Create Draft
+            </button>
+          ) : isEditing ? (
+            <input
+              type="text"
+              autoFocus
+              className="min-w-0 flex-1 rounded border border-primary-400 bg-white px-1.5 py-0.5 text-xs font-normal text-primary-800 outline-none focus:border-link-400 focus:ring-1 focus:ring-link-400"
+              value={editingName}
+              onChange={(e) => setEditingName(e.target.value)}
+              onBlur={() => {
+                if (editingName.trim()) renameDraft(draft.id, editingName);
+                setEditingDraftId(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  if (editingName.trim()) renameDraft(draft.id, editingName);
+                  setEditingDraftId(null);
+                }
+                if (e.key === 'Escape') setEditingDraftId(null);
+              }}
+            />
+          ) : (
+            <span
+              className="min-w-0 cursor-text truncate text-xs font-normal text-primary-800 hover:underline hover:underline-offset-2"
+              role="button"
+              tabIndex={0}
+              title="Click to rename"
+              onClick={() => {
+                setEditingDraftId(draft.id);
+                setEditingName(draft.name);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  setEditingDraftId(draft.id);
+                  setEditingName(draft.name);
+                }
               }}
             >
-              <MoreHorizontal size={15} strokeWidth={2} aria-hidden />
-            </button>
-            {menuOpen ? (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-1 w-[180px] overflow-hidden rounded-md border border-primary-400 bg-white py-1 shadow-lg">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-primary-800 hover:bg-primary-100"
-                    onClick={startRename}
-                  >
-                    Rename
-                  </button>
-                  <a
-                    href={`${import.meta.env.BASE_URL}trust-center`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-primary-800 hover:bg-primary-100"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      selectDraft(draft.id);
-                      setPreviewMode('draft');
-                    }}
-                  >
-                    Open preview in new tab
-                  </a>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-700 hover:bg-primary-100"
-                    onClick={onDelete}
-                  >
-                    Delete draft
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </div>
-        </div>
-        <div className="border-t border-primary-200 px-3 py-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-primary-600">Share Draft Preview</span>
-            <span className="flex min-w-0 items-center gap-1">
-              <a
-                href="https://pr-3348.preview.chq"
-                target="_blank"
-                rel="noreferrer"
-                className="truncate text-[11px] text-link-400 hover:underline"
-              >
-                pr-3348.preview.chq
-              </a>
-              <CopyUrlButton url="https://pr-3348.preview.chq" label="Copy pre-launch link" />
+              {draft.name}
             </span>
-          </div>
-        </div>
-        {detailOpen ? (
-          // Fixed height (~3 bullets tall) so the row doesn't jump as edits are added/removed.
-          // More than 3 bullets scrolls inside this body without growing the row.
-          // The body auto-scrolls to bottom on every diff change for visible edit confirmation.
-          <div ref={diffScrollRef} className="h-[84px] overflow-y-auto px-3 py-2.5">
-            {diff.length === 0 ? (
-              <p className="text-[11px] leading-snug text-primary-600">
-                Draft matches published. Edit something to stage a change.
-              </p>
-            ) : (
-              <ul className="space-y-1 text-[11px] leading-snug text-primary-700" role="list">
-                {diff.map((entry) => (
-                  <li key={entry.id} className="group/revert flex items-start gap-2">
-                    <span aria-hidden className="mt-1 h-1 w-1 shrink-0 rounded-full bg-primary-500" />
-                    <span className="min-w-0 flex-1">{entry.label}</span>
+          )}
+          {/* Kebab — same menu: Rename, Open preview, Delete */}
+          {draft != null ? (
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                aria-label={`More actions for ${draft.name}`}
+                className="rounded p-0.5 text-primary-600 transition-colors hover:bg-primary-100 hover:text-primary-900"
+                onClick={() => setMenuOpen((v) => !v)}
+              >
+                <MoreVertical size={14} strokeWidth={2} aria-hidden />
+              </button>
+              {menuOpen ? (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-1 w-[180px] overflow-hidden rounded-md border border-primary-400 bg-white py-1 shadow-lg">
                     <button
                       type="button"
-                      className="shrink-0 rounded p-0.5 text-primary-500 opacity-0 transition-opacity group-hover/revert:opacity-100 hover:bg-primary-100 hover:text-primary-800 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-link-400/40"
-                      title="Revert this change"
-                      aria-label={`Revert: ${entry.label}`}
-                      onClick={() => revertDraftField(entry.id)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-primary-800 hover:bg-primary-100"
+                      onClick={startRename}
                     >
-                      <Undo2 size={12} strokeWidth={2} aria-hidden />
+                      Rename
                     </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : null}
+                    <a
+                      href={`${import.meta.env.BASE_URL}trust-center`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-primary-800 hover:bg-primary-100"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        selectDraft(draft.id);
+                        setPreviewMode('draft');
+                      }}
+                    >
+                      Open preview in new tab
+                    </a>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-700 hover:bg-primary-100"
+                      onClick={onDelete}
+                    >
+                      Delete draft
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
-    </li>
+
+      {/* ── Share Preview row ── */}
+      <div className="flex h-8 items-center justify-between gap-2">
+        <span className="shrink-0 text-xs text-primary-600">Share Preview:</span>
+        <a
+          href="https://pr-3348.preview.chq"
+          target="_blank"
+          rel="noreferrer"
+          className="flex shrink-0 items-center gap-1 truncate text-xs text-link-400 hover:underline"
+          onClick={(e) => {
+            e.preventDefault();
+            if (typeof navigator !== 'undefined' && navigator.clipboard) {
+              navigator.clipboard.writeText('https://pr-3348.preview.chq').catch(() => {});
+            }
+            window.open('https://pr-3348.preview.chq', '_blank', 'noreferrer');
+          }}
+        >
+          pr-3348.preview.chq
+          <Copy size={12} strokeWidth={2} className="shrink-0" aria-hidden />
+        </a>
+      </div>
+
+      {/* ── Change Log row ── */}
+      <div className="flex h-8 items-center justify-between gap-2">
+        <span className="shrink-0 text-xs text-primary-600">Change Log:</span>
+        {draft != null ? (
+          <button
+            type="button"
+            className="flex shrink-0 items-center gap-1 text-xs font-normal text-primary-800"
+            aria-expanded={detailOpen}
+            aria-label={`${changeLogSummaryRight}. Click to ${detailOpen ? 'collapse' : 'expand'}.`}
+            onClick={() => setDetailOpen((v) => !v)}
+          >
+            {changeLogSummaryRight}
+            <ChevronDown
+              size={14}
+              strokeWidth={2}
+              className={`shrink-0 text-primary-500 transition-transform duration-150 ${detailOpen ? 'rotate-180' : ''}`}
+              aria-hidden
+            />
+          </button>
+        ) : (
+          <span className="text-xs text-primary-500">0 changes</span>
+        )}
+      </div>
+
+      {/* ── Bullet list (change log details, shown when accordion is open) ── */}
+      {draft != null && detailOpen ? (
+        <div className="ml-1 pb-1">
+          {diff.length === 0 ? (
+            <div className="flex items-start gap-2 text-[11px] leading-[15px] text-primary-700" role="status">
+              <span aria-hidden className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-primary-700" />
+              <span>No Changes</span>
+            </div>
+          ) : (
+            <ul className="space-y-1 text-[11px] leading-[15px] text-primary-700" role="list">
+              {diff.map((entry) => (
+                <li key={entry.id} className="group/revert flex items-start gap-2">
+                  <span aria-hidden className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-primary-700" />
+                  <span className="min-w-0 flex-1">{entry.label}</span>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded p-0.5 text-primary-600 opacity-0 transition-opacity group-hover/revert:opacity-100 hover:bg-primary-200 hover:text-primary-900 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-link-400/40"
+                    title="Revert this change"
+                    aria-label={`Revert: ${entry.label}`}
+                    onClick={() => revertDraftField(entry.id)}
+                  >
+                    <Undo2 size={12} strokeWidth={2} aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
-/** Compact visitor-live switch for the single Published-tab Trust Center row (updates published snapshot only). */
-function PublishedVisitorLocaleSwitch({
-  live,
-  'aria-label': ariaLabel,
-  onLiveChange,
+
+/**
+ * VisibilityDropdown
+ * A select-style control that shows "Public" (visitor-live) or "Private" (hidden).
+ * Selecting the opposite value fires the appropriate callback so the parent can open a confirmation modal.
+ * Figma: Trust Center Vision HQ > Designer > Published > Visibility selector
+ */
+function VisibilityDropdown({
+  isPublic,
+  onSelectPublic,
+  onSelectPrivate,
 }: {
-  live: boolean;
-  'aria-label': string;
-  onLiveChange: (next: boolean) => void;
+  isPublic: boolean;
+  onSelectPublic: () => void;
+  onSelectPrivate: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+
+  const handleSelect = (value: 'public' | 'private') => {
+    setOpen(false);
+    if (value === 'public' && !isPublic) onSelectPublic();
+    if (value === 'private' && isPublic) onSelectPrivate();
+  };
+
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={live}
-      aria-label={ariaLabel}
-      onClick={() => onLiveChange(!live)}
-      className={`relative inline-flex h-3.5 w-[26px] shrink-0 items-center rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-800/25 ${
-        live ? 'bg-brand-400' : 'bg-primary-300'
-      }`}
-    >
-      <span
-        className={`pointer-events-none absolute top-1/2 h-[11px] w-[11px] -translate-y-1/2 rounded-full bg-white shadow-sm ${
-          live ? 'right-[1px]' : 'left-[1px]'
-        }`}
-      />
-    </button>
+    <div className="relative mt-3">
+      {/* Trigger */}
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Visibility: ${isPublic ? 'Public' : 'Unpublished'}`}
+        className="flex w-full items-center gap-2.5 rounded-lg border border-primary-400 bg-white px-3 py-2.5 text-left transition-colors hover:border-primary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-800/25"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {isPublic ? (
+          <Globe size={16} strokeWidth={2} className="shrink-0 text-brand-400" aria-hidden />
+        ) : (
+          <EyeOff size={16} strokeWidth={2} className="shrink-0 text-primary-500" aria-hidden />
+        )}
+        <span className="flex-1 text-xs font-medium text-primary-800">
+          {isPublic ? 'Public' : 'Unpublished'}
+        </span>
+        <ChevronDown
+          size={14}
+          strokeWidth={2}
+          className={`shrink-0 text-primary-500 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+          aria-hidden
+        />
+      </button>
+
+      {/* Popover */}
+      {open ? (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            role="listbox"
+            aria-label="Trust Center visibility"
+            className="absolute left-0 right-0 z-50 mt-1 overflow-hidden rounded-lg border border-primary-400 bg-white py-1 shadow-lg"
+          >
+            <button
+              type="button"
+              role="option"
+              aria-selected={isPublic}
+              className={`flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-primary-100 ${isPublic ? 'bg-primary-100' : ''}`}
+              onClick={() => handleSelect('public')}
+            >
+              <Globe size={16} strokeWidth={2} className="mt-0.5 shrink-0 text-brand-400" aria-hidden />
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-primary-800">Public</span>
+                <span className="text-[10px] leading-tight text-primary-600">Visible to visitors at trust.mediacore.com</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              role="option"
+              aria-selected={!isPublic}
+              className={`flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-primary-100 ${!isPublic ? 'bg-primary-100' : ''}`}
+              onClick={() => handleSelect('private')}
+            >
+              <EyeOff size={16} strokeWidth={2} className="mt-0.5 shrink-0 text-primary-500" aria-hidden />
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-primary-800">Unpublished</span>
+                <span className="text-[10px] leading-tight text-primary-600">Branded URL deactivated, not visible to visitors</span>
+              </div>
+            </button>
+          </div>
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -847,6 +877,83 @@ function formatLanguageList(labels: string[]): string {
   return `${labels.length} languages`;
 }
 
+/**
+ * Read-only key/value rows for the published Trust Center snapshot (public view, languages, brand, changelog).
+ * Figma: Trust Center Vision HQ > Designer > Published > Active Trust Center card (configuration list)
+ */
+function PublishedSnapshotConfigDl({
+  pub,
+  liveLocaleLabels,
+  changelogNote,
+  className,
+  id,
+  ariaHidden,
+}: {
+  pub: StageablePresentation;
+  liveLocaleLabels: string[];
+  changelogNote?: string;
+  className?: string;
+  id?: string;
+  ariaHidden?: boolean;
+}) {
+  return (
+    <dl id={id} aria-hidden={ariaHidden} className={className}>
+      <div className="flex items-start justify-between gap-3">
+        <dt className="shrink-0 text-primary-600">Public view</dt>
+        <dd className="text-right font-medium text-primary-800">
+          {pub.publicView === 'modern' ? 'Modern landing' : 'Simple form'}
+        </dd>
+      </div>
+      <div className="flex items-start justify-between gap-3">
+        <dt className="shrink-0 text-primary-600">Language</dt>
+        <dd
+          className="text-right font-medium text-primary-800"
+          title={liveLocaleLabels.join(', ')}
+        >
+          {formatLanguageList(liveLocaleLabels)}
+        </dd>
+      </div>
+      <div className="flex items-start justify-between gap-3">
+        <dt className="shrink-0 text-primary-600">Accent</dt>
+        <dd className="flex items-center gap-2">
+          <span
+            className="h-5 w-5 shrink-0 rounded border border-primary-400 shadow-sm"
+            style={{ backgroundColor: pub.accentColor }}
+            title={pub.accentColor}
+          />
+          <span className="font-mono text-[10px] text-primary-700">{pub.accentColor}</span>
+        </dd>
+      </div>
+      <div className="flex items-start justify-between gap-3">
+        <dt className="shrink-0 text-primary-600">Primary</dt>
+        <dd className="flex items-center gap-2">
+          <span
+            className="h-5 w-5 shrink-0 rounded border border-primary-400 shadow-sm"
+            style={{ backgroundColor: pub.primaryColor }}
+            title={pub.primaryColor}
+          />
+          <span className="font-mono text-[10px] text-primary-700">{pub.primaryColor}</span>
+        </dd>
+      </div>
+      <div className="flex items-start justify-between gap-3">
+        <dt className="shrink-0 text-primary-600">Font</dt>
+        <dd className="text-right font-medium text-primary-800">{pub.fontFamily || '—'}</dd>
+      </div>
+      {changelogNote ? (
+        <div className="border-t border-primary-300 pt-2">
+          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-600">Changelog</p>
+          <p className="text-xs leading-relaxed text-primary-700">{changelogNote}</p>
+        </div>
+      ) : null}
+    </dl>
+  );
+}
+
+/**
+ * Published configuration rows under the Active Trust Center header row.
+ * Always visible: Live URL, NDA. Collapsible: Details (View All toggle shows full config).
+ * Figma: Trust Center Vision HQ > Designer > Published > Active Trust Center card (May 2026 flat mockup)
+ */
 function PublishedSnapshot({
   pub,
   liveLocaleLabels,
@@ -860,129 +967,166 @@ function PublishedSnapshot({
 }) {
   const url = 'https://trust.mediacore.com';
   const urlDisplay = 'trust.mediacore.com';
-  const copyLabel = 'Copy live URL';
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   return (
-    <div>
-      {null}
-      <div className="space-y-2.5 px-3 py-2.5">
-        <dl className="space-y-2.5 text-xs">
+    <div className="flex flex-col gap-2.5 pr-3 pt-3">
+      {/* Branded URL row: shows as "Live URL" when public, "Branded URL" (inactive style) when unpublished */}
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="shrink-0 text-primary-600">{isVisitorLive ? 'Live URL:' : 'Branded URL:'}</span>
+        <div className="min-w-0 flex-1 flex justify-end">
           {isVisitorLive ? (
-            <div className="flex items-start justify-between gap-3">
-              <dt className="shrink-0 text-primary-600">Live URL</dt>
-              <dd className="flex min-w-0 items-center justify-end gap-1.5">
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="break-all text-link-400 hover:underline"
-                >
-                  {urlDisplay}
-                </a>
-                <CopyUrlButton url={url} label={copyLabel} />
-              </dd>
-            </div>
-          ) : null}
-          <div className="flex items-start justify-between gap-3">
-            <dt className="shrink-0 text-primary-600">Public view</dt>
-            <dd className="text-right font-medium text-primary-800">
-              {pub.publicView === 'modern' ? 'Modern landing' : 'Simple form'}
-            </dd>
-          </div>
-          <div className="flex items-start justify-between gap-3">
-            <dt className="shrink-0 text-primary-600">Language</dt>
-            <dd
-              className="text-right font-medium text-primary-800"
-              title={liveLocaleLabels.join(', ')}
-            >
-              {formatLanguageList(liveLocaleLabels)}
-            </dd>
-          </div>
-          <div className="flex items-start justify-between gap-3">
-            <dt className="shrink-0 text-primary-600">Accent</dt>
-          <dd className="flex items-center gap-2">
-            <span
-              className="h-5 w-5 shrink-0 rounded border border-primary-400 shadow-sm"
-              style={{ backgroundColor: pub.accentColor }}
-              title={pub.accentColor}
-            />
-            <span className="font-mono text-[10px] text-primary-700">{pub.accentColor}</span>
-          </dd>
-        </div>
-        <div className="flex items-start justify-between gap-3">
-          <dt className="shrink-0 text-primary-600">Primary</dt>
-          <dd className="flex items-center gap-2">
-            <span
-              className="h-5 w-5 shrink-0 rounded border border-primary-400 shadow-sm"
-              style={{ backgroundColor: pub.primaryColor }}
-              title={pub.primaryColor}
-            />
-            <span className="font-mono text-[10px] text-primary-700">{pub.primaryColor}</span>
-          </dd>
-        </div>
-        <div className="flex items-start justify-between gap-3">
-          <dt className="shrink-0 text-primary-600">Font</dt>
-          <dd className="text-right font-medium text-primary-800">{pub.fontFamily || '—'}</dd>
-        </div>
-        <div className="flex items-start justify-between gap-3">
-          <dt className="shrink-0 text-primary-600">NDA</dt>
-          <dd className="text-right">
             <a
-              href="#"
-              className="text-link-400 hover:underline"
-              onClick={(e) => e.preventDefault()}
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex max-w-full min-w-0 items-center gap-1 text-link-400 hover:underline"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                  navigator.clipboard.writeText(url).catch(() => {});
+                }
+                window.open(url, '_blank', 'noreferrer');
+              }}
             >
-              Manage NDAs
+              <span className="min-w-0 truncate">{urlDisplay}</span>
+              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden>
+                <Copy size={14} strokeWidth={2} />
+              </span>
             </a>
-          </dd>
+          ) : (
+            <button
+              type="button"
+              title="Copy inactive URL"
+              className="flex max-w-full min-w-0 items-center gap-1 font-normal text-primary-800 hover:text-primary-900"
+              onClick={() => {
+                if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                  navigator.clipboard.writeText(url).catch(() => {});
+                }
+              }}
+            >
+              <span className="min-w-0 truncate">{urlDisplay}</span>
+              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-primary-500" aria-hidden>
+                <Copy size={14} strokeWidth={2} />
+              </span>
+            </button>
+          )}
         </div>
-      </dl>
-      {changelogNote ? (
-        <div className="border-t border-primary-200 pt-2">
-          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-600">Changelog</p>
-          <p className="text-xs leading-relaxed text-primary-700">{changelogNote}</p>
+      </div>
+
+      {/* NDA row */}
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="shrink-0 text-primary-600">NDA:</span>
+        <div className="min-w-0 flex-1 flex justify-end">
+          <a
+            href="#"
+            className="flex items-center gap-1 text-link-400 hover:underline"
+            onClick={(e) => e.preventDefault()}
+          >
+            Manage NDAs
+            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden>
+              <ExternalLink size={14} strokeWidth={2} />
+            </span>
+          </a>
+        </div>
+      </div>
+
+      {/* Details row (accordion toggle) */}
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="shrink-0 text-primary-600">Details:</span>
+        <div className="min-w-0 flex-1 flex justify-end">
+          <button
+            type="button"
+            className="flex items-center gap-1 font-normal text-primary-800"
+            aria-expanded={detailsOpen}
+            onClick={() => setDetailsOpen((v) => !v)}
+          >
+            View All
+            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden>
+              <ChevronDown
+                size={14}
+                strokeWidth={2}
+                className={`text-primary-500 transition-transform duration-150 ${detailsOpen ? 'rotate-180' : ''}`}
+              />
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Full config list (shown when Details is open; indented under the Details row like nested auto-layout) */}
+      {detailsOpen ? (
+        <div className="ml-0.5 border-l border-primary-300 pl-3">
+          <PublishedSnapshotConfigDl
+            pub={pub}
+            liveLocaleLabels={liveLocaleLabels}
+            changelogNote={changelogNote}
+            className="space-y-2.5 pb-1 text-xs"
+          />
         </div>
       ) : null}
-      </div>
     </div>
   );
 }
 
-/** Inline copy-to-clipboard icon for Live URL or Pre-launch link. Shows a hover tooltip and a brief Copied state. */
-function CopyUrlButton({ url, label }: { url: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  const onCopy = (e: ReactMouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(url).catch(() => {});
-    }
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
-  };
+/**
+ * PublishedEmptyState
+ * Shown inside card 1 when the Published tab has no active Trust Center.
+ * Displays "No Published Trust Center" title with kebab, the branded URL in an
+ * inactive dropdown-style control, and helper text (publish visibility only; custom domain help lives in the publish guide Step 2).
+ * Figma: Trust Center Vision HQ > Designer > Published > Empty state (May 2026)
+ */
+function PublishedEmptyState() {
+  const url = 'trust.mediacore.com';
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
-    <span className="group/copy-url relative inline-flex shrink-0">
-      <button
-        type="button"
-        aria-label={label}
-        onClick={onCopy}
-        className="rounded p-1 text-primary-600 transition-colors hover:bg-primary-100 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-800/25"
-      >
-        <Copy size={12} strokeWidth={2} aria-hidden />
-      </button>
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute right-0 top-full z-50 mt-1 hidden w-max max-w-[160px] group-hover/copy-url:block"
-      >
-        <span className="block rounded-[3px] bg-primary-900 px-2.5 py-1.5 text-[11px] font-medium leading-snug text-white">
-          {copied ? 'Copied' : label}
+    <div className="rounded-b-lg px-5 py-4">
+      {/* Title row */}
+      <div className="flex items-center gap-2">
+        <span className="min-w-0 flex-1 truncate text-xs font-medium leading-snug text-primary-800">
+          No Published Trust Center
         </span>
-        <span
-          className="absolute -top-[3px] right-2 h-0 w-0 border-x-[4px] border-b-[4px] border-x-transparent border-b-primary-900"
-          aria-hidden
-        />
-      </span>
-    </span>
+        <div className="relative flex shrink-0 items-center">
+          <button
+            type="button"
+            aria-label="More actions"
+            className="rounded p-1 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <MoreVertical size={14} strokeWidth={2} aria-hidden />
+          </button>
+          {menuOpen ? (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-full z-50 mt-1 w-[180px] overflow-hidden rounded-md border border-primary-400 bg-white py-1 shadow-lg">
+                <a
+                  href={`${import.meta.env.BASE_URL}trust-center`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-primary-800 hover:bg-primary-100"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Open preview in new tab
+                </a>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Inactive URL control (styled like the visibility dropdown but non-interactive) */}
+      <div className="mt-3 flex w-full items-center gap-2.5 rounded-lg border border-primary-400 bg-white px-3 py-2.5">
+        <EyeOff size={16} strokeWidth={2} className="shrink-0 text-primary-500" aria-hidden />
+        <span className="flex-1 truncate text-xs text-primary-600">{url}</span>
+        <ChevronDown size={14} strokeWidth={2} className="shrink-0 text-primary-400" aria-hidden />
+      </div>
+
+      {/* Helper text */}
+      <p className="mt-3 text-xs leading-relaxed text-primary-600">
+        Publish draft to make URL live and visible to visitors.
+      </p>
+    </div>
   );
 }
 
@@ -990,66 +1134,72 @@ function CopyUrlButton({ url, label }: { url: string; label: string }) {
 function PublishedTabContent({
   workspaceTab,
   switchWorkspaceTab,
-  onWorkspaceTabChange,
+  onUnpublishSuccess,
 }: {
   workspaceTab: 'draft' | 'published';
   switchWorkspaceTab: (tab: 'draft' | 'published') => void;
-  onWorkspaceTabChange: (tab: 'draft' | 'published') => void;
+  onUnpublishSuccess: (draftName: string) => void;
 }) {
   const { state } = useDesigner();
   const pub = getPublishedPresentation(state);
   const hasPublishedTC = LANGUAGE_MENU.some(
     (item) => pub.localeLive[item.locale] || pub.localeEverPublished[item.locale],
   );
-  const isVisitorLive = LANGUAGE_MENU.some((item) => pub.localeLive[item.locale]);
+  const [publishGuideModalOpen, setPublishGuideModalOpen] = useState(false);
+  const [publishLiveToastVisible, setPublishLiveToastVisible] = useState(false);
+
+  const triggerPublishLiveToast = () => {
+    setPublishLiveToastVisible(true);
+    window.setTimeout(() => setPublishLiveToastVisible(false), PUBLISH_LIVE_SUCCESS_TOAST_DURATION_MS);
+  };
 
   return (
     <>
-      <div className="z-10 shrink-0 border-b border-primary-400">
-        <div className="bg-white px-5 pt-4 pb-0">
+      {/* Card 1: Draft/Published tabs + Active Trust Center overview */}
+      <div className="z-10 shrink-0 pb-1.5 pl-0 pr-3 pt-3">
+        {/* No overflow-hidden: PublishedOverviewSection kebab menu is absolute and must extend below this card. */}
+        <div className="rounded-lg border border-primary-400 bg-white">
           <DesignerWorkspaceTabList value={workspaceTab} onChange={switchWorkspaceTab} />
+          {hasPublishedTC ? (
+            <PublishedOverviewSection onUnpublishSuccess={onUnpublishSuccess} />
+          ) : (
+            <PublishedEmptyState />
+          )}
         </div>
-        <div className="bg-primary-100 px-5 py-3">
-          <h4 className="text-sm font-medium text-primary-800">Active Trust Center</h4>
-          <p className="mt-1 text-xs leading-relaxed text-primary-600">
-            {!hasPublishedTC
-              ? 'There is currently no active Trust Center. Publish draft to create a branded URL visible to visitors.'
-              : isVisitorLive
-                ? 'Live to visitors. To remove URL visibility, toggle off to deactivate the branded URL.'
-                : 'Branded URL inactive. Toggle on to publish a branded URL visible to visitors.'}
-          </p>
-        </div>
-        {hasPublishedTC ? (
-          <div className="bg-primary-100">
-            <PublishedOverviewSection onSwitchToDraft={() => { onWorkspaceTabChange('draft'); }} />
-          </div>
-        ) : null}
       </div>
+      {/* Card: publish guide (only when nothing has been published yet) */}
+      {!hasPublishedTC ? (
+        <div className="z-10 shrink-0 pb-3 pl-0 pr-3 pt-1.5">
+          <div className="overflow-hidden rounded-lg border border-primary-400 bg-white">
+            <PublishedPublishGuideCard
+              isPublishDisabled={state.drafts.length === 0}
+              onPublishNow={() => setPublishGuideModalOpen(true)}
+              onGoToDraftTab={() => switchWorkspaceTab('draft')}
+            />
+          </div>
+        </div>
+      ) : null}
+      {publishGuideModalOpen ? (
+        <PublishConfirmModal
+          goLive
+          onClose={() => setPublishGuideModalOpen(false)}
+          onPublishLiveSuccess={triggerPublishLiveToast}
+        />
+      ) : null}
+      <PublishLiveSuccessToast visible={publishLiveToastVisible} />
+      {/* Card 2: Edit Active Content (scrollable) */}
       {hasPublishedTC ? (
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-          <PublishedContentSection />
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-3 pl-0 pr-3 pt-0">
+          <div className="overflow-hidden rounded-lg border border-primary-400 bg-white">
+            <PublishedContentSection />
+          </div>
         </div>
-      ) : (
-        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-          <p
-            className="font-medium"
-            style={{ fontSize: '14px', lineHeight: '135%', color: '#204156', fontFamily: "'Neue Montreal', sans-serif" }}
-          >
-            No active Trust Center.
-          </p>
-          <p
-            className="mt-2 max-w-[260px]"
-            style={{ fontSize: '14px', lineHeight: '135%', color: '#204156', fontFamily: "'Neue Montreal', sans-serif", fontWeight: 400 }}
-          >
-            Visit the Draft tab to view or publish your Trust Center.
-          </p>
-        </div>
-      )}
+      ) : null}
     </>
   );
 }
 
-function PublishedOverviewSection({ onSwitchToDraft }: { onSwitchToDraft: () => void }) {
+function PublishedOverviewSection({ onUnpublishSuccess }: { onUnpublishSuccess: (draftName: string) => void }) {
   const { state, setPreviewLocale, setPreviewMode, setPublishedTrustCenterVisitorLive, unpublishToDraft, setPublishedChangelogNote, publishActiveDraft } =
     useDesigner();
   const pub = getPublishedPresentation(state);
@@ -1059,7 +1209,6 @@ function PublishedOverviewSection({ onSwitchToDraft }: { onSwitchToDraft: () => 
   );
   const hasTrustCenter = includedLocales.length > 0;
   const isVisitorLive = LANGUAGE_MENU.some((item) => pub.localeLive[item.locale]);
-  const [detailOpen, setDetailOpen] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [changelogModalOpen, setChangelogModalOpen] = useState(false);
   const [changelogDraft, setChangelogDraft] = useState('');
@@ -1074,7 +1223,6 @@ function PublishedOverviewSection({ onSwitchToDraft }: { onSwitchToDraft: () => 
     defaultTcName;
 
   const includedLanguageLabels = includedLocales.map((l) => l.label);
-  const previewingRow = includedLocales.some((item) => item.locale === state.previewLocale);
 
   const focusPreviewLocale = () => {
     const firstVisitorLive = includedLocales.find((item) => pub.localeLive[item.locale]);
@@ -1084,150 +1232,91 @@ function PublishedOverviewSection({ onSwitchToDraft }: { onSwitchToDraft: () => 
   };
 
   return (
-    <div className="px-5 py-4">
+    <div className="rounded-b-lg px-5 py-4">
       {!hasTrustCenter ? (
         <p className="rounded-lg border border-dashed border-primary-400 bg-primary-100/60 px-3 py-2.5 text-xs text-primary-700">
           No trust centers yet. On the Draft tab, turn languages live and publish.
         </p>
       ) : (
-        <ul className="space-y-3" role="list">
-          <li>
-            <div
-              className={`rounded-lg border border-primary-200 bg-white transition-shadow hover:shadow-md ${
-                previewingRow ? 'ring-1 ring-brand-400/40' : ''
-              }`}
+        <>
+          {/* Title row: TC name (clickable to focus preview) + kebab */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label={`${trustCenterTitle}. Click to focus preview.`}
+              className="min-w-0 flex-1 truncate text-left text-xs font-medium text-primary-800 transition-colors hover:text-primary-900"
+              onClick={() => {
+                if (isVisitorLive) focusPreviewLocale();
+              }}
             >
-              <div className="flex min-h-[36px] items-stretch border-b border-primary-100">
-                <div className="flex shrink-0 items-center border-r border-primary-100 px-2">
-                  <PublishedVisitorLocaleSwitch
-                    live={isVisitorLive}
-                    aria-label={`${trustCenterTitle}: ${
-                      isVisitorLive
-                        ? 'Live for visitors (all published languages). Click to deactivate branded URL.'
-                        : 'Branded URL inactive. Click to turn on for all published languages.'
-                    }`}
-                    onLiveChange={(next) => {
-                      if (!next) {
-                        // Turning off → show unpublish confirmation modal
-                        setUnpublishConfirmOpen(true);
-                        return;
-                      }
-                      // Turning on → show republish confirmation modal
-                      setRepublishConfirmOpen(true);
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  aria-expanded={detailOpen}
-                  aria-label={`${trustCenterTitle}. Click to ${detailOpen ? 'collapse' : 'expand'} details.`}
-                  className="flex min-w-0 flex-1 flex-col items-stretch gap-0.5 px-2.5 py-2 text-left transition-colors hover:bg-primary-50"
-                  onClick={() => {
-                    setDetailOpen(!detailOpen);
-                    if (isVisitorLive) {
-                      focusPreviewLocale();
-                    }
-                  }}
-                >
-                  <span className="min-w-0 truncate text-xs font-medium text-primary-800">{trustCenterTitle}</span>
-                  <span className="flex items-center gap-1 truncate text-[10px] font-normal leading-tight text-primary-600">
-                    <span
-                      className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
-                        isVisitorLive ? 'bg-emerald-500' : 'bg-primary-400'
-                      }`}
-                      aria-hidden
-                    />
-                    {isVisitorLive ? (
-                      'Active since 8 minutes ago'
-                    ) : (
-                      <>
-                        Branded URL Inactive:{' '}
-                        <span
-                          role="link"
-                          tabIndex={0}
-                          className="cursor-pointer font-medium text-link-400 hover:underline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPreviewMode('draft');
-                            onSwitchToDraft();
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setPreviewMode('draft');
-                              onSwitchToDraft();
-                            }
-                          }}
-                        >
-                          View Draft
-                        </span>
-                      </>
-                    )}
-                  </span>
-                </button>
-                <div className="relative flex shrink-0 items-center border-l border-primary-100 px-1">
-                  <button
-                    type="button"
-                    aria-label={`More actions for ${trustCenterTitle}`}
-                    className="rounded p-1 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(!menuOpen);
-                    }}
-                  >
-                    <MoreHorizontal size={15} strokeWidth={2} aria-hidden />
-                  </button>
-                  {menuOpen ? (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                      <div className="absolute right-0 top-full z-50 mt-1 w-[180px] overflow-hidden rounded-md border border-primary-400 bg-white py-1 shadow-lg">
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-primary-800 hover:bg-primary-100"
-                          onClick={() => {
-                            setMenuOpen(false);
-                            setChangelogDraft(state.publishedChangelogNote);
-                            setChangelogModalOpen(true);
-                          }}
-                        >
-                          Edit changelog
-                        </button>
-                        <a
-                          href={`${import.meta.env.BASE_URL}trust-center`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-primary-800 hover:bg-primary-100"
-                          onClick={() => setMenuOpen(false)}
-                        >
-                          Open preview in new tab
-                        </a>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-primary-800 hover:bg-primary-100"
-                          onClick={() => {
-                            setMenuOpen(false);
-                            setShareModalOpen(true);
-                          }}
-                        >
-                          Share via invite
-                        </button>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-              {detailOpen ? (
-                <PublishedSnapshot
-                  pub={pub}
-                  isVisitorLive={isVisitorLive}
-                  liveLocaleLabels={includedLanguageLabels}
-                  changelogNote={state.publishedChangelogNote}
-                />
+              {trustCenterTitle}
+            </button>
+            <div className="relative flex shrink-0 items-center">
+              <button
+                type="button"
+                aria-label={`More actions for ${trustCenterTitle}`}
+                className="rounded p-1 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(!menuOpen);
+                }}
+              >
+                <MoreVertical size={14} strokeWidth={2} aria-hidden />
+              </button>
+              {menuOpen ? (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-1 w-[180px] overflow-hidden rounded-md border border-primary-400 bg-white py-1 shadow-lg">
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-primary-800 hover:bg-primary-100"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setChangelogDraft(state.publishedChangelogNote);
+                        setChangelogModalOpen(true);
+                      }}
+                    >
+                      Edit changelog
+                    </button>
+                    <a
+                      href={`${import.meta.env.BASE_URL}trust-center`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-primary-800 hover:bg-primary-100"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Open preview in new tab
+                    </a>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-primary-800 hover:bg-primary-100"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setShareModalOpen(true);
+                      }}
+                    >
+                      Share via invite
+                    </button>
+                  </div>
+                </>
               ) : null}
             </div>
-          </li>
-        </ul>
+          </div>
+
+          {/* Visibility dropdown: Public / Private */}
+          <VisibilityDropdown
+            isPublic={isVisitorLive}
+            onSelectPublic={() => setRepublishConfirmOpen(true)}
+            onSelectPrivate={() => setUnpublishConfirmOpen(true)}
+          />
+
+          <PublishedSnapshot
+            pub={pub}
+            isVisitorLive={isVisitorLive}
+            liveLocaleLabels={includedLanguageLabels}
+            changelogNote={state.publishedChangelogNote}
+          />
+        </>
       )}
 
       {changelogModalOpen ? (
@@ -1347,8 +1436,10 @@ function PublishedOverviewSection({ onSwitchToDraft }: { onSwitchToDraft: () => 
                       type="button"
                       className="rounded bg-red-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-600"
                       onClick={() => {
+                        const nameForToast = trustCenterTitle;
                         unpublishToDraft();
                         setUnpublishConfirmOpen(false);
+                        onUnpublishSuccess(nameForToast);
                       }}
                     >
                       Unpublish Trust Center
@@ -1553,6 +1644,7 @@ const SCROLL_TARGETS: Record<string, string> = {
   philosophy: '#section-philosophy',
   'coming-soon': '#section-philosophy',
   'featured-documents': '#section-featured-documents',
+  'find-answer': '#section-find-answer',
   documents: '#section-find-answer',
   'knowledge-base': '#section-find-answer',
   'announcements-add': '#section-announcements',
@@ -1592,6 +1684,33 @@ const SCROLL_NO_EVENT_MS = 120;
 const HIGHLIGHT_FADE_OUT_MS = 200;
 /** When NOT opening a modal (kebab "Edit on Page"), keep the highlight visible this long so the user registers the section. */
 const HIGHLIGHT_KEEP_MS = 500;
+
+/**
+ * Smooth-scroll `el` into view inside its nearest scrollable ancestor **only**.
+ * Unlike `Element.scrollIntoView`, this never touches `document.documentElement`
+ * or `document.body`, so the designer shell toolbar and StickyNav stay put.
+ */
+function scrollContainerTo(el: Element) {
+  const container = findScrollContainer(el);
+  if (container === window) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  const c = container as HTMLElement;
+  const cRect = c.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const target = c.scrollTop + (elRect.top - cRect.top);
+  c.scrollTo({ top: target, behavior: 'smooth' });
+}
+
+/**
+ * Safety net: zero out body/html scrollTop in case any browser path
+ * (e.g. focus management, modal portals) shifts the shell.
+ */
+function resetShellScroll() {
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+}
 
 /**
  * Walk up the DOM to find the nearest scrollable ancestor of `el`. Falls back
@@ -1725,8 +1844,9 @@ function PublishedContentSection() {
     }
 
     highlightEl.classList.add('is-editing-target');
-    scrollEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollContainerTo(scrollEl);
     await waitForScrollEnd(scrollEl);
+    resetShellScroll();
     await new Promise<void>((resolve) => window.setTimeout(resolve, HIGHLIGHT_DWELL_MS));
 
     const cleanupHighlight = () => {
@@ -1822,7 +1942,7 @@ function PublishedContentSection() {
 
   return (
     <>
-      <div className="border-b border-primary-400 bg-white">
+      <div className="bg-white">
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
@@ -2541,7 +2661,6 @@ function FixedSectionTooltip({
 }
 
 function FixedHeaderSections({ sectionVisibility, onToggle, noPublishedTC = false, onEditSection }: { sectionVisibility: Record<string, boolean>; onToggle: (id: string) => void; noPublishedTC?: boolean; onEditSection?: (editId: string) => void }) {
-  const quickLinksVisible = sectionVisibility['quick-links'] !== false;
   const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
 
   /** Scroll center preview to section, highlight, then open modal. */
@@ -2552,8 +2671,9 @@ function FixedHeaderSections({ sectionVisibility, onToggle, noPublishedTC = fals
     const highlightEl = highlightSel ? document.querySelector(highlightSel) : null;
     if (!scrollEl || !highlightEl) { onEditSection?.(editId); return; }
     highlightEl.classList.add('is-editing-target');
-    scrollEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollContainerTo(scrollEl);
     await waitForScrollEnd(scrollEl);
+    resetShellScroll();
     await new Promise<void>((r) => window.setTimeout(r, HIGHLIGHT_DWELL_MS));
     onEditSection?.(editId);
     highlightEl.classList.add('is-editing-target--leaving');
@@ -2561,22 +2681,29 @@ function FixedHeaderSections({ sectionVisibility, onToggle, noPublishedTC = fals
   };
 
   const lockedRows: { label: string; alwaysVisible: boolean; visibilityId?: string; anchor?: string; editId?: string }[] = [
-    { label: 'Trust Center imagery', alwaysVisible: true, anchor: '#section-just-for-you', editId: 'banner' },
-    { label: 'Company profile', alwaysVisible: true, anchor: '#section-company-identity', editId: 'profile' },
+    {
+      label: 'Trust Center imagery',
+      alwaysVisible: false,
+      visibilityId: TRUST_CENTER_BANNER_VISIBILITY_ID,
+      anchor: '#section-just-for-you',
+      editId: 'banner',
+    },
+    { label: 'Company profile', alwaysVisible: false, visibilityId: 'company-profile', anchor: '#section-company-identity', editId: 'profile' },
     { label: 'Quick links', alwaysVisible: false, visibilityId: 'quick-links', anchor: '#section-company-identity', editId: 'quick-links' },
   ];
   return (
     <div className="mb-1">
       {lockedRows.map(({ label, alwaysVisible, visibilityId, anchor, editId }) => {
-        const isVisible = alwaysVisible || quickLinksVisible;
+        const isRowVisible =
+          visibilityId != null ? sectionVisibility[visibilityId] !== false : alwaysVisible;
         return (
           <div
             key={label}
-            className="group/row flex items-center gap-1.5 rounded-md py-2 px-2"
+            className="group/row flex items-center gap-1 rounded-md py-2 pr-2"
           >
-            {/* 6-dot grip — visible on hover, disabled for fixed rows */}
+            {/* 6-dot grip — in the left gutter, visible on hover, disabled for fixed rows */}
             <FixedSectionTooltip text="Section cannot be moved" position="right">
-              <span className="shrink-0 w-4 flex items-center justify-center text-primary-400 opacity-0 group-hover/row:opacity-100 transition-opacity cursor-not-allowed" aria-hidden>
+              <span className="shrink-0 w-5 flex items-center justify-center text-primary-400 opacity-0 group-hover/row:opacity-100 transition-opacity cursor-not-allowed" aria-hidden>
                 <GripVertical size={14} />
               </span>
             </FixedSectionTooltip>
@@ -2590,14 +2717,14 @@ function FixedHeaderSections({ sectionVisibility, onToggle, noPublishedTC = fals
             ) : (
               <button
                 type="button"
-                onClick={() => visibilityId ? onToggle(visibilityId) : undefined}
+                onClick={() => (visibilityId ? onToggle(visibilityId) : undefined)}
                 className="shrink-0 p-0.5 text-primary-700 hover:opacity-80"
-                title={isVisible ? `Hide ${label}` : `Show ${label}`}
-                aria-label={isVisible ? `Hide ${label}` : `Show ${label}`}
+                title={isRowVisible ? `Hide ${label}` : `Show ${label}`}
+                aria-label={isRowVisible ? `Hide ${label}` : `Show ${label}`}
               >
                 <FontAwesomeIcon
-                  icon={isVisible ? faEye : faEyeSlash}
-                  className={`right-panel-layout-row-icon ${isVisible ? 'text-primary-700' : 'text-primary-500 opacity-40'}`}
+                  icon={isRowVisible ? faEye : faEyeSlash}
+                  className={`right-panel-layout-row-icon ${isRowVisible ? 'text-primary-700' : 'text-primary-500 opacity-40'}`}
                 />
               </button>
             )}
@@ -2639,7 +2766,7 @@ function FixedHeaderSections({ sectionVisibility, onToggle, noPublishedTC = fals
                 </span>
               </span>
             </div>
-            {/* Pencil edit (only when no published TC) */}
+            {/* Pencil edit: draft tab only before any locale is live or ever published on the snapshot */}
             {noPublishedTC && editId && (
               <button
                 type="button"
@@ -2722,8 +2849,9 @@ function CustomizeLayoutSection({
     }
 
     highlightEl.classList.add('is-editing-target');
-    scrollEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollContainerTo(scrollEl);
     await waitForScrollEnd(scrollEl);
+    resetShellScroll();
     await new Promise<void>((r) => window.setTimeout(r, HIGHLIGHT_DWELL_MS));
 
     const cleanupHighlight = () => {
@@ -2785,9 +2913,9 @@ function CustomizeLayoutSection({
       </button>
       {expanded && (
         <div className="px-5 pb-4">
-          <p className="mb-1 mt-1 px-2 text-[10px] font-medium uppercase tracking-wider text-primary-500">Header and Identity</p>
+          <p className="mb-1 mt-1 pl-6 pr-2 text-[10px] font-medium uppercase tracking-wider text-primary-500">Header and Identity</p>
           <FixedHeaderSections sectionVisibility={sectionVisibility} onToggle={onToggle} noPublishedTC={noPublishedTC} onEditSection={onEditSection} />
-          <p className="mb-1 mt-3 px-2 text-[10px] font-medium uppercase tracking-wider text-primary-500">Page Sections</p>
+          <p className="mb-1 mt-3 pl-6 pr-2 text-[10px] font-medium uppercase tracking-wider text-primary-500">Page Sections</p>
           <div
             ref={listRef}
             role="list"
@@ -2845,15 +2973,15 @@ function CustomizeLayoutSection({
                       clearDrag();
                     }}
                     onDragEnd={clearDrag}
-                    className={`group/row relative flex items-center gap-1.5 rounded-md py-2 px-2 select-none transition-shadow ${
+                    className={`group/row relative flex items-center gap-1 rounded-md py-2 pr-2 select-none transition-shadow ${
                       isDragging
                         ? 'z-10 cursor-grabbing bg-white shadow-[0_8px_24px_rgba(0,27,40,0.12)] ring-1 ring-primary-400'
                         : 'cursor-grab hover:bg-primary-100'
                     }`}
                   >
-                    {/* 6-dot grip — visible on hover, at the front */}
+                    {/* 6-dot grip — in the left gutter, visible on hover */}
                     <span
-                      className={`shrink-0 w-4 flex items-center justify-center text-primary-400 transition-opacity ${
+                      className={`shrink-0 w-5 flex items-center justify-center text-primary-400 transition-opacity ${
                         isDragging ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
                       }`}
                       aria-hidden

@@ -37,16 +37,15 @@ function DocumentComplianceBadges() {
 export default function DocumentsFAQsSection() {
   const { activeReviewingFilter, setActiveReviewingFilter } = useReviewingProductFilter();
   const copy = useTrustCenterCopy();
-  const { enabled, previewMode } = useTrustCenterSectionEdit();
+  const { previewMode } = useTrustCenterSectionEdit();
   const [searchOpen, setSearchOpen] = useState<string | null>(null);
 
   return (
     <div id="section-find-answer" className="mx-10 py-8 scroll-mt-20">
       <TrustCenterEditableRegion
         sectionId="find-answer"
-        enabled={enabled}
+        enabled={false}
         previewMode={previewMode}
-        publishedOverlay="none"
         onEditClick={() => {}}
         className="flex flex-col gap-4"
       >

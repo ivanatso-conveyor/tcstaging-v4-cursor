@@ -1,6 +1,8 @@
 /**
- * POST trust-center/dist to https://api.temp.md/temps (multipart per temp.md/docs).
- * Run from repo: npm run build && node scripts/publish-temp-md.mjs
+ * Upload trust-center/dist to temp.md (multipart per https://temp.md/docs).
+ *
+ * Publish (new URL): npm run build && node scripts/publish-temp-md.mjs
+ * Update (same URL): TEMP_MD_TEMP_ID=... TEMP_MD_UPDATE_TOKEN=... npm run build && node scripts/publish-temp-md.mjs
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -53,7 +55,16 @@ for (const full of all) {
   form.append(fieldName, new File([buf], baseName, { type: guessMime(full) }));
 }
 
-const res = await fetch('https://api.temp.md/temps', { method: 'POST', body: form });
+const tempId = process.env.TEMP_MD_TEMP_ID?.trim();
+const updateToken = process.env.TEMP_MD_UPDATE_TOKEN?.trim();
+const url =
+  tempId && updateToken
+    ? `https://api.temp.md/temps/${encodeURIComponent(tempId)}`
+    : 'https://api.temp.md/temps';
+const headers =
+  tempId && updateToken ? { Authorization: `Bearer ${updateToken}` } : {};
+
+const res = await fetch(url, { method: tempId && updateToken ? 'PUT' : 'POST', headers, body: form });
 const raw = await res.text();
 let json;
 try {
@@ -64,7 +75,7 @@ try {
 }
 
 if (!res.ok) {
-  console.error('Publish failed', res.status, json);
+  console.error(tempId && updateToken ? 'Update failed' : 'Publish failed', res.status, json);
   process.exit(1);
 }
 

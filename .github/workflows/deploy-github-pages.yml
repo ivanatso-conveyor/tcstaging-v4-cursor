@@ -34,7 +34,7 @@ jobs:
       - name: Build
         working-directory: trust-center
         env:
-          VITE_BASE_PATH: /Trust-Center-Staging-V2-Draft-Preview-Link-published/
+          VITE_BASE_PATH: /tcstaging-v4-cursor/
         run: npm run build
 
       - uses: actions/configure-pages@v5

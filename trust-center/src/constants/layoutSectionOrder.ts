@@ -17,6 +17,18 @@ export const LAYOUT_SECTION_IDS = [
 
 export type LayoutSectionId = (typeof LAYOUT_SECTION_IDS)[number];
 
+/**
+ * Designer "Section Layout" visibility for the hero banner image (wide image under the nav).
+ * Distinct from layout section IDs; toggled from the Trust Center imagery row eye control.
+ */
+export const TRUST_CENTER_BANNER_VISIBILITY_ID = 'trust-center-banner';
+
+/**
+ * Designer "Section Layout" visibility for the company profile summary paragraph.
+ * When off, the headline and stat tags remain but the body text is hidden.
+ */
+export const COMPANY_PROFILE_VISIBILITY_ID = 'company-profile';
+
 export const DEFAULT_SECTION_ORDER: LayoutSectionId[] = [...LAYOUT_SECTION_IDS];
 
 /** Static labels for the right panel (locale-specific titles use copy where noted in UI). */
@@ -87,5 +99,11 @@ export function migrateSectionVisibility(v: Record<string, boolean>): Record<str
   LAYOUT_SECTION_IDS.forEach((id) => {
     if (next[id] === undefined) next[id] = true;
   });
+  if (next[TRUST_CENTER_BANNER_VISIBILITY_ID] === undefined) {
+    next[TRUST_CENTER_BANNER_VISIBILITY_ID] = true;
+  }
+  if (next[COMPANY_PROFILE_VISIBILITY_ID] === undefined) {
+    next[COMPANY_PROFILE_VISIBILITY_ID] = true;
+  }
   return next;
 }

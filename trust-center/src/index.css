@@ -20,6 +20,11 @@
   --trust-center-header-color: #333366;
   --trust-center-accent-color: #292951;
 
+  /** Designer workspace tabs — “has draft” dot (amber, distinct from live teal). */
+  --color-designer-draft-indicator: #ca8a04;
+  /** Full-page draft preview top banner (`/trust-center?draftPreview=1`) — light yellow strip. */
+  --color-draft-preview-banner-bg: #fdf4e1;
+
   --color-brand-600: #1A9E7A;
   --color-brand-400: #33C69F;
   --color-brand-200: #7DE5CA;
@@ -29,6 +34,9 @@
 
   --color-link-400: #0D7DE4;
   --color-link-100: #E6F3FF;
+  /** Draft preview floating bar (full-page draft tab + legacy designer bottom bar pattern) */
+  --color-preview-as-bar-bg: #0569cb;
+  --color-preview-as-bar-pill: #0052b1;
   /** Link/0 — lightest link-tint surface (panels, chips) */
   --color-link-0: #eff6ff;
 
@@ -56,6 +64,14 @@
   --color-surface: #FFFFFF;
   --color-bg-default: #F9FBFC;
   --color-border-default: #DEE7EE;
+
+  /**
+   * Designer staging strip above Trust Center preview (draft + published).
+   * Hairline + one soft layer (reduced May 2026: lighter than full card shadow).
+   */
+  --shadow-staging-toolbar:
+    0 1px 0 rgba(32, 65, 86, 0.06),
+    0 2px 8px -3px rgba(32, 65, 86, 0.07);
 
   /**
    * Semantic aliases (SearchBar / shadcn-style). Values duplicate primary/surface;
@@ -210,6 +226,56 @@
   10% { opacity: 1; transform: translate(-50%, 0); }
   85% { opacity: 1; transform: translate(-50%, 0); }
   100% { opacity: 0; transform: translate(-50%, -4px); }
+}
+
+/** Publish live success toast: progress bar shrinks from the right (countdown). */
+@keyframes publish-toast-progress-shrink {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.publish-live-success-toast-progress-fill {
+  transform-origin: right center;
+  animation-name: publish-toast-progress-shrink;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/** Publish live success toast: confetti pieces burst outward from the toast center. */
+@keyframes publish-confetti-burst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(0, 0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(var(--confetti-dx), var(--confetti-dy))
+      rotate(var(--confetti-rot));
+  }
+}
+
+.publish-live-success-confetti-piece {
+  animation-name: publish-confetti-burst;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .publish-live-success-confetti {
+    display: none;
+  }
+
+  .publish-live-success-toast-progress-fill {
+    animation: none;
+    opacity: 0.35;
+  }
 }
 
 /** Font Awesome row icons in Customize Layout — size follows --layout-customize-row-icon-size */

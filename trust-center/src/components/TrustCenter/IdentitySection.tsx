@@ -12,6 +12,7 @@ import { mergeCompanyProfile } from '../../utils/companyProfileMerge';
 import { mergeQuickLinks } from '../../utils/quickLinksMerge';
 import MaterialIcon from '../MaterialIcon';
 import TrustCenterEditableRegion from './TrustCenterEditableRegion';
+import FixedSectionDnDHandle from './FixedSectionDnDHandle';
 
 const TRUST_EMAIL = 'trust@mediacore.com';
 
@@ -23,6 +24,8 @@ export default function IdentitySection() {
   const companyProfile = mergeCompanyProfile(copy.identity, state.savedCompanyProfile);
   const presentation = getDesignerTrustCenterPresentation(state);
   const quickLinksVisible = presentation.sectionVisibility['quick-links'] !== false;
+  const summaryVisible = presentation.sectionVisibility['company-profile'] !== false;
+  const showDraftHandles = enabled && previewMode === 'draft';
   const bodyParts = companyProfile.bodySummary.split(TRUST_EMAIL);
 
   return (
@@ -52,22 +55,24 @@ export default function IdentitySection() {
               </span>
             </div>
 
-            <p
-              className="mb-8 text-sm leading-[1.35] text-primary-700"
-              style={{ fontFamily: "'Neue Montreal', sans-serif", fontWeight: 400 }}
-            >
-              {bodyParts.length === 2 ? (
-                <>
-                  {bodyParts[0]}
-                  <a href={`mailto:${TRUST_EMAIL}`} className="text-link-400 underline decoration-solid">
-                    {TRUST_EMAIL}
-                  </a>
-                  {bodyParts[1]}
-                </>
-              ) : (
-                companyProfile.bodySummary
-              )}
-            </p>
+            {summaryVisible ? (
+              <p
+                className="mb-8 text-sm leading-[1.35] text-primary-700"
+                style={{ fontFamily: "'Neue Montreal', sans-serif", fontWeight: 400 }}
+              >
+                {bodyParts.length === 2 ? (
+                  <>
+                    {bodyParts[0]}
+                    <a href={`mailto:${TRUST_EMAIL}`} className="text-link-400 underline decoration-solid">
+                      {TRUST_EMAIL}
+                    </a>
+                    {bodyParts[1]}
+                  </>
+                ) : (
+                  companyProfile.bodySummary
+                )}
+              </p>
+            ) : null}
 
             <div className="mb-8 flex flex-wrap gap-4">
               <Tag icon={<MaterialIcon symbol="description" size={16} color="var(--color-icon-default)" />} label={copy.identity.tagDocuments} />
@@ -80,45 +85,13 @@ export default function IdentitySection() {
 
         {quickLinksVisible && (
           <div className="w-[220px] shrink-0">
-            <TrustCenterEditableRegion
-              sectionId="quick-links"
-              enabled={enabled}
-              previewMode={previewMode}
-              publishedOverlay="pencil-only"
-              onEditClick={onSectionEdit}
-              className="min-w-0"
-            >
-              <div className="overflow-hidden rounded border border-primary-400 bg-white p-5">
-                <h3
-                  className="mb-2 text-xs uppercase tracking-[0.24px] text-primary-700"
-                  style={{ fontFamily: "'Neue Montreal', sans-serif", fontWeight: 500 }}
-                >
-                  {copy.identity.quickLinksTitle}
-                </h3>
-                <div className="mt-3 flex flex-col gap-3">
-                  <QuickLink
-                    href={quickLinks.home.url}
-                    icon={<MaterialIcon symbol="link" size={18} color="var(--color-link-400)" />}
-                    label={quickLinks.home.display}
-                  />
-                  <QuickLink
-                    href={quickLinks.privacy.url}
-                    icon={<MaterialIcon symbol="link" size={18} color="var(--color-link-400)" />}
-                    label={quickLinks.privacy.display}
-                  />
-                  <QuickLink
-                    href={quickLinks.status.url}
-                    icon={<MaterialIcon symbol="link" size={18} color="var(--color-link-400)" />}
-                    label={quickLinks.status.display}
-                  />
-                  <QuickLink
-                    href={quickLinks.vuln.url}
-                    icon={<MaterialIcon symbol="pest_control" size={18} color="var(--color-link-400)" />}
-                    label={quickLinks.vuln.display}
-                  />
-                </div>
-              </div>
-            </TrustCenterEditableRegion>
+            {showDraftHandles ? (
+              <FixedSectionDnDHandle>
+                <QuickLinksCard copy={copy} quickLinks={quickLinks} enabled={enabled} previewMode={previewMode} onSectionEdit={onSectionEdit} />
+              </FixedSectionDnDHandle>
+            ) : (
+              <QuickLinksCard copy={copy} quickLinks={quickLinks} enabled={enabled} previewMode={previewMode} onSectionEdit={onSectionEdit} />
+            )}
           </div>
         )}
       </div>
@@ -140,6 +113,62 @@ function Tag({ icon, label }: { icon: ReactNode; label: string }) {
         {label}
       </span>
     </div>
+  );
+}
+
+function QuickLinksCard({
+  copy,
+  quickLinks,
+  enabled,
+  previewMode,
+  onSectionEdit,
+}: {
+  copy: ReturnType<typeof import('../../hooks/useTrustCenterCopy').useTrustCenterCopy>;
+  quickLinks: ReturnType<typeof import('../../utils/quickLinksMerge').mergeQuickLinks>;
+  enabled: boolean;
+  previewMode: 'draft' | 'published';
+  onSectionEdit: (id: import('../../contexts/TrustCenterSectionEditContext').EditableTrustSectionId) => void;
+}) {
+  return (
+    <TrustCenterEditableRegion
+      sectionId="quick-links"
+      enabled={enabled}
+      previewMode={previewMode}
+      publishedOverlay="pencil-only"
+      onEditClick={onSectionEdit}
+      className="min-w-0"
+    >
+      <div className="overflow-hidden rounded border border-primary-400 bg-white p-5">
+        <h3
+          className="mb-2 text-xs uppercase tracking-[0.24px] text-primary-700"
+          style={{ fontFamily: "'Neue Montreal', sans-serif", fontWeight: 500 }}
+        >
+          {copy.identity.quickLinksTitle}
+        </h3>
+        <div className="mt-3 flex flex-col gap-3">
+          <QuickLink
+            href={quickLinks.home.url}
+            icon={<MaterialIcon symbol="link" size={18} color="var(--color-link-400)" />}
+            label={quickLinks.home.display}
+          />
+          <QuickLink
+            href={quickLinks.privacy.url}
+            icon={<MaterialIcon symbol="link" size={18} color="var(--color-link-400)" />}
+            label={quickLinks.privacy.display}
+          />
+          <QuickLink
+            href={quickLinks.status.url}
+            icon={<MaterialIcon symbol="link" size={18} color="var(--color-link-400)" />}
+            label={quickLinks.status.display}
+          />
+          <QuickLink
+            href={quickLinks.vuln.url}
+            icon={<MaterialIcon symbol="pest_control" size={18} color="var(--color-link-400)" />}
+            label={quickLinks.vuln.display}
+          />
+        </div>
+      </div>
+    </TrustCenterEditableRegion>
   );
 }
 
