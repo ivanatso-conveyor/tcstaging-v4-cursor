@@ -58,6 +58,7 @@ import {
 } from '../../constants/layoutSectionOrder';
 import { formatTrustCenterName } from '../../constants/designerDraftAuthor';
 import { DESIGNER_RIGHT_PANEL_WIDTH_PX } from '../../constants/designerLayout';
+import { DEFAULT_TRUST_CENTER_PROFILE_DISPLAY } from '../../constants/trustCenterProfileUrl';
 import {
   LANGUAGE_MENU,
   PRIMARY_TRUST_CENTER_LOCALE,
@@ -80,6 +81,7 @@ import AddSubprocessorModal from '../TrustCenter/AddSubprocessorModal';
 import ManageSubprocessorsModal from '../TrustCenter/ManageSubprocessorsModal';
 import ManageAnnouncementsModal from '../TrustCenter/ManageAnnouncementsModal';
 import ManageVideoResourcesModal from '../TrustCenter/ManageVideoResourcesModal';
+import ManageProductsModal from '../TrustCenter/ManageProductsModal';
 import AddProductModal from '../TrustCenter/AddProductModal';
 import NewVideoResourceModal from '../TrustCenter/NewVideoResourceModal';
 import DocumentsSearchModal from '../TrustCenter/DocumentsSearchModal';
@@ -258,7 +260,7 @@ export default function RightPanel({ workspaceTab, onWorkspaceTabChange }: Right
                 onToggle={toggleSection}
                 reorderSections={reorderSections}
                 noPublishedTC={noPublishedTC}
-                onEditSection={noPublishedTC ? setDraftEditSection : undefined}
+                onEditSection={setDraftEditSection}
               />
               <PublicViewSection publicView={state.publicView} onChange={setPublicView} />
               {SHOW_DRAFTABLE_CONTENT_ACCORDION ? (
@@ -318,8 +320,10 @@ export default function RightPanel({ workspaceTab, onWorkspaceTabChange }: Right
       <ManageAnnouncementsModal onClose={() => setDraftEditSection(null)} />
     ) : draftEditSection === 'announcements-add' ? (
       <NewAnnouncementModal onClose={() => setDraftEditSection(null)} />
-    ) : draftEditSection === 'what-we-offer' || draftEditSection === 'what-we-offer-add' ? (
+    ) : draftEditSection === 'what-we-offer-add' ? (
       <AddProductModal onClose={() => setDraftEditSection(null)} />
+    ) : draftEditSection === 'what-we-offer' || draftEditSection === 'what-we-offer-update' ? (
+      <ManageProductsModal onClose={() => setDraftEditSection(null)} />
     ) : draftEditSection === 'video-resources' || draftEditSection === 'video-resources-update' ? (
       <ManageVideoResourcesModal onClose={() => setDraftEditSection(null)} />
     ) : draftEditSection === 'video-resources-add' ? (
@@ -703,22 +707,26 @@ function DraftStagingSection() {
       {/* ── Share Preview row ── */}
       <div className="flex h-8 items-center justify-between gap-2">
         <span className="shrink-0 text-xs text-primary-600">Share Preview:</span>
-        <a
-          href="https://pr-3348.preview.chq"
-          target="_blank"
-          rel="noreferrer"
-          className="flex shrink-0 items-center gap-1 truncate text-xs text-link-400 hover:underline"
-          onClick={(e) => {
-            e.preventDefault();
-            if (typeof navigator !== 'undefined' && navigator.clipboard) {
-              navigator.clipboard.writeText('https://pr-3348.preview.chq').catch(() => {});
-            }
-            window.open('https://pr-3348.preview.chq', '_blank', 'noreferrer');
-          }}
-        >
-          pr-3348.preview.chq
-          <Copy size={12} strokeWidth={2} className="shrink-0" aria-hidden />
-        </a>
+        {draft != null ? (
+          <a
+            href="https://pr-3348.preview.chq"
+            target="_blank"
+            rel="noreferrer"
+            className="flex shrink-0 items-center gap-1 truncate text-xs text-link-400 hover:underline"
+            onClick={(e) => {
+              e.preventDefault();
+              if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                navigator.clipboard.writeText('https://pr-3348.preview.chq').catch(() => {});
+              }
+              window.open('https://pr-3348.preview.chq', '_blank', 'noreferrer');
+            }}
+          >
+            pr-3348.preview.chq
+            <Copy size={12} strokeWidth={2} className="shrink-0" aria-hidden />
+          </a>
+        ) : (
+          <span className="shrink-0 text-xs text-primary-500">No sharable draft</span>
+        )}
       </div>
 
       {/* ── Change Log row ── */}
@@ -1077,7 +1085,9 @@ function PublishedSnapshot({
  * Figma: Trust Center Vision HQ > Designer > Published > Empty state (May 2026)
  */
 function PublishedEmptyState() {
-  const url = 'trust.mediacore.com';
+  const { state } = useDesigner();
+  const isColdStart = state.drafts.length === 0;
+  const url = isColdStart ? DEFAULT_TRUST_CENTER_PROFILE_DISPLAY : 'trust.mediacore.com';
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -1124,7 +1134,9 @@ function PublishedEmptyState() {
 
       {/* Helper text */}
       <p className="mt-3 text-xs leading-relaxed text-primary-600">
-        Publish draft to make URL live and visible to visitors.
+        {isColdStart
+          ? 'Account verification is pending approval.'
+          : 'Publish draft to make URL live and visible to visitors.'}
       </p>
     </div>
   );
@@ -1649,6 +1661,7 @@ const SCROLL_TARGETS: Record<string, string> = {
   'knowledge-base': '#section-find-answer',
   'announcements-add': '#section-announcements',
   'announcements-update': '#section-announcements',
+  subprocessors: '#section-subprocessors',
   'subprocessors-add': '#section-subprocessors',
   'subprocessors-update': '#section-subprocessors',
   'trusted-by': '#section-trusted-by',
@@ -1819,10 +1832,9 @@ function PublishedContentSection() {
    *
    * - `openModal: true` (default) — after the dwell, open the edit modal
    *   on top. Used by every pencil row and by the kebab "Add X" item.
-   * - `openModal: false` — skip the modal; just bring the user to the
-   *   highlighted section so they can edit inline on the page. Used by the
-   *   kebab "Edit X" item (Announcements / Subprocessors / What we Offer /
-   *   Video Resources), where the manage list is the page itself.
+   * - `openModal: false` — scroll and highlight only (no modal). Reserved for
+   *   flows that edit inline on the page; kebab "Edit X" items open their manage
+   *   modals with the default `openModal: true`.
    *
    * When no target is wired (or the element isn't in the DOM, e.g. a
    * hidden section), fall back to opening the modal immediately — there's
@@ -2009,9 +2021,8 @@ function PublishedContentSection() {
                   );
                 }
 
-                // Dual-action rows render as a kebab menu with two items: "Add X"
-                // (opens the Add modal) and "Edit X on Page" (jumps to the section
-                // so the user can edit inline via the section's own hover UI).
+                // Dual-action rows render as a kebab menu: "Add X" and "Edit X on Page"
+                // (both open their modals after scrolling to the section).
                 const open = openMenuKey === row.groupKey;
                 const menuTip = `${row.groupLabel} actions`;
                 const editLabel = `Edit ${row.groupLabel} on Page`;
@@ -2057,9 +2068,7 @@ function PublishedContentSection() {
                           className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-primary-700 hover:bg-primary-100"
                           onClick={() => {
                             setOpenMenuKey(null);
-                            // Kebab "Edit X" jumps to the section for inline editing —
-                            // no modal, unlike the pencil rows.
-                            focusAndEdit(row.primaryItem.editId, { openModal: false });
+                            focusAndEdit(row.primaryItem.editId);
                           }}
                         >
                           <Pencil size={12} strokeWidth={2} aria-hidden className="text-primary-600" />
@@ -2098,6 +2107,8 @@ function PublishedContentSection() {
         <ManageSubprocessorsModal onClose={() => setEditingContent(null)} />
       ) : editingContent === 'what-we-offer-add' ? (
         <AddProductModal onClose={() => setEditingContent(null)} />
+      ) : editingContent === 'what-we-offer-update' ? (
+        <ManageProductsModal onClose={() => setEditingContent(null)} />
       ) : editingContent === 'video-resources-add' ? (
         <NewVideoResourceModal onClose={() => setEditingContent(null)} />
       ) : editingContent === 'video-resources-update' ? (
@@ -3079,7 +3090,7 @@ function CustomizeLayoutSection({
                                 type="button"
                                 role="menuitem"
                                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-primary-700 hover:bg-primary-100"
-                                onClick={() => { setOpenMenuKey(null); focusAndEdit(KEBAB_MENU_ITEMS[id].editEditId, { openModal: false }); }}
+                                onClick={() => { setOpenMenuKey(null); focusAndEdit(KEBAB_MENU_ITEMS[id].editEditId); }}
                               >
                                 <Pencil size={12} strokeWidth={2} aria-hidden className="text-primary-600" />
                                 {KEBAB_MENU_ITEMS[id].editLabel}

@@ -20,7 +20,7 @@ export default function SubprocessorsSection() {
   const [editingDomain, setEditingDomain] = useState<string | null>(null);
   const displayed = showAll ? subprocessors : subprocessors.slice(0, 4);
   const copy = useTrustCenterCopy();
-  const { enabled, previewMode } = useTrustCenterSectionEdit();
+  const { enabled, previewMode, onSectionEdit } = useTrustCenterSectionEdit();
 
   return (
     <div id="section-subprocessors" className="mx-10 py-8 scroll-mt-20">
@@ -29,7 +29,7 @@ export default function SubprocessorsSection() {
         enabled={enabled}
         previewMode={previewMode}
         publishedOverlay="none"
-        onEditClick={() => {}}
+        onEditClick={onSectionEdit}
       >
       <div className="mb-6 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">

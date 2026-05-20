@@ -17,7 +17,7 @@ export const videoResources: VideoResource[] = [
 
 export default function VideoSection() {
   const copy = useTrustCenterCopy();
-  const { enabled, previewMode } = useTrustCenterSectionEdit();
+  const { enabled, previewMode, onSectionEdit } = useTrustCenterSectionEdit();
   const [addOpen, setAddOpen] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
 
@@ -28,7 +28,7 @@ export default function VideoSection() {
         enabled={enabled}
         previewMode={previewMode}
         publishedOverlay="none"
-        onEditClick={() => {}}
+        onEditClick={onSectionEdit}
       >
       <h2
         className="mb-5 text-base text-primary-700"

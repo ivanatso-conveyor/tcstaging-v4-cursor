@@ -13,7 +13,7 @@ export default function WhatWeOfferSection() {
   const copy = useTrustCenterCopy();
   const [addOpen, setAddOpen] = useState(false);
   const [editingProductIndex, setEditingProductIndex] = useState<number | null>(null);
-  const { enabled, previewMode } = useTrustCenterSectionEdit();
+  const { enabled, previewMode, onSectionEdit } = useTrustCenterSectionEdit();
   const { order, layout } = useWhatWeOfferLayout();
 
   const orderedProducts = useMemo(
@@ -30,7 +30,7 @@ export default function WhatWeOfferSection() {
         enabled={enabled}
         previewMode={previewMode}
         publishedOverlay="none"
-        onEditClick={() => {}}
+        onEditClick={onSectionEdit}
       >
       <div className="flex items-center justify-between gap-4 mb-5">
         <h2

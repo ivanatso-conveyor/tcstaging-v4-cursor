@@ -7,6 +7,13 @@ import { ReviewingProductFilterProvider } from '../../contexts/ReviewingProductF
 import { LAYOUT_SECTION_IDS, type LayoutSectionId, TRUST_CENTER_BANNER_VISIBILITY_ID } from '../../constants/layoutSectionOrder';
 import { LANGUAGE_MENU } from '../../constants/previewLocale';
 import { DESIGNER_PREVIEW_EDGE_PAD_CLASS, DESIGNER_PREVIEW_MAX_WIDTH_CLASS } from '../../constants/designerLayout';
+import {
+  BRANDED_TRUST_CENTER_DISPLAY,
+  BRANDED_TRUST_CENTER_URL,
+  DEFAULT_TRUST_CENTER_PROFILE_DISPLAY,
+  DEFAULT_TRUST_CENTER_PROFILE_URL,
+} from '../../constants/trustCenterProfileUrl';
+import { PublishConfirmModal } from '../Settings/RightPanel';
 import StickyNav from '../Navigation/StickyNav';
 import type { SearchItem } from '../../data/searchData';
 import HeaderBanner from './HeaderBanner';
@@ -35,6 +42,13 @@ import TrustedBySettingsModal from './TrustedBySettingsModal';
 import PhilosophySettingsModal from './PhilosophySettingsModal';
 import ComingSoonSettingsModal from './ComingSoonSettingsModal';
 import DocumentsSearchModal from './DocumentsSearchModal';
+import ManageSubprocessorsModal from './ManageSubprocessorsModal';
+import ManageAnnouncementsModal from './ManageAnnouncementsModal';
+import ManageVideoResourcesModal from './ManageVideoResourcesModal';
+import ManageProductsModal from './ManageProductsModal';
+import NewAnnouncementModal from './NewAnnouncementModal';
+import NewVideoResourceModal from './NewVideoResourceModal';
+import AddProductModal from './AddProductModal';
 import type { EditableTrustSectionId } from '../../contexts/TrustCenterSectionEditContext';
 import { TrustCenterSectionEditProvider } from '../../contexts/TrustCenterSectionEditContext';
 
@@ -228,6 +242,7 @@ export default function TrustCenterContent({
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
                 <PublishedEmptySkeleton
                   hasEverPublished={hasEverPublished}
+                  hasDraft={state.drafts.length > 0}
                   onViewDraft={() => {
                     setPreviewMode('draft');
                     onWorkspaceTabChange?.('draft');
@@ -393,9 +408,23 @@ export default function TrustCenterContent({
                 initialPanelKey="documents"
                 onClose={() => setEditSection(null)}
               />
-            ) : (
+            ) : editSection === 'subprocessors' ? (
+              <ManageSubprocessorsModal onClose={() => setEditSection(null)} />
+            ) : editSection === 'announcements' || editSection === 'announcements-update' ? (
+              <ManageAnnouncementsModal onClose={() => setEditSection(null)} />
+            ) : editSection === 'announcements-add' ? (
+              <NewAnnouncementModal onClose={() => setEditSection(null)} />
+            ) : editSection === 'what-we-offer' || editSection === 'what-we-offer-update' ? (
+              <ManageProductsModal onClose={() => setEditSection(null)} />
+            ) : editSection === 'what-we-offer-add' ? (
+              <AddProductModal onClose={() => setEditSection(null)} />
+            ) : editSection === 'video-resources' || editSection === 'video-resources-update' ? (
+              <ManageVideoResourcesModal onClose={() => setEditSection(null)} />
+            ) : editSection === 'video-resources-add' ? (
+              <NewVideoResourceModal onClose={() => setEditSection(null)} />
+            ) : editSection ? (
               <EditSectionPlaceholderModal section={editSection} onClose={() => setEditSection(null)} />
-            )}
+            ) : null}
           </TrustCenterSectionEditProvider>
           {standalone &&
           ((draftPreviewFullPage && state.drafts.length > 0) || publishedPreviewFullPage) ? (
@@ -504,6 +533,23 @@ function EmptyStateIllustration() {
  */
 function PublishedEmptyStateIllustration() {
   const src = `${import.meta.env.BASE_URL}Imagery/no-results.png`;
+  return (
+    <img
+      src={src}
+      alt=""
+      width={112}
+      height={112}
+      className="mx-auto h-[112px] w-[112px] object-contain"
+      decoding="async"
+    />
+  );
+}
+
+/**
+ * Published-tab empty state when a draft exists but nothing is live yet (`Imagery/Empty State Spot Illustrations/done.png`).
+ */
+function ReadyToPublishIllustration() {
+  const src = `${import.meta.env.BASE_URL}Imagery/Empty%20State%20Spot%20Illustrations/done.png`;
   return (
     <img
       src={src}
@@ -685,7 +731,19 @@ function DraftEmptySkeletonLiveNoDraft({ onCreateDraft }: { onCreateDraft: () =>
 }
 
 /** Skeleton placeholder shown in the center preview when the Published tab has no active Trust Center. */
-function PublishedEmptySkeleton({ hasEverPublished, onViewDraft }: { hasEverPublished: boolean; onViewDraft: () => void }) {
+function PublishedEmptySkeleton({
+  hasEverPublished,
+  hasDraft,
+  onViewDraft,
+}: {
+  hasEverPublished: boolean;
+  hasDraft: boolean;
+  onViewDraft: () => void;
+}) {
+  const isColdStart = !hasEverPublished && !hasDraft;
+  const isReadyToPublish = hasDraft && !hasEverPublished;
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+
   return (
     <div className="relative px-4 pb-10 pt-0 sm:px-6 md:px-8">
       {/* Skeleton background — faded to look inactive but with visible detail */}
@@ -788,38 +846,99 @@ function PublishedEmptySkeleton({ hasEverPublished, onViewDraft }: { hasEverPubl
       {/* Centered overlay card on top of the skeleton */}
       <div className="pointer-events-none absolute inset-0 flex items-start justify-center" style={{ paddingTop: '18%' }}>
         <div className="pointer-events-auto flex w-[420px] flex-col items-center rounded-xl bg-white px-10 pb-10 pt-12 text-center shadow-lg ring-1 ring-primary-200">
-          <PublishedEmptyStateIllustration />
-          <h3
-            className="mt-6 font-medium"
-            style={{ fontSize: '14px', lineHeight: '135%', color: '#204156', fontFamily: "'Neue Montreal', sans-serif" }}
-          >
-            There is no published Trust Center.
+          {isReadyToPublish ? <ReadyToPublishIllustration /> : <PublishedEmptyStateIllustration />}
+          <h3 className="mt-6 text-sm font-medium leading-snug text-primary-800">
+            {isReadyToPublish ? 'Ready to Publish?' : 'There is no published Trust Center.'}
           </h3>
-          <p
-            className="mt-2 max-w-[320px]"
-            style={{ fontSize: '14px', lineHeight: '135%', color: '#204156', fontFamily: "'Neue Montreal', sans-serif", fontWeight: 400 }}
-          >
-            {hasEverPublished
-              ? 'Your Trust Center has been unpublished. Visit the Draft tab to make changes and republish.'
-              : 'Your active trust center will appear here after your draft is published. Reach out to Conveyor Support to claim your branded url.'}
-          </p>
+          <div className="mt-2 max-w-[320px] text-sm leading-snug text-primary-800">
+            {hasEverPublished ? (
+              <p>
+                Your Trust Center has been unpublished. Visit the Draft tab to make changes and republish.
+              </p>
+            ) : isColdStart ? (
+              <>
+                <p>
+                  Your Trust Center draft will publish by default to{' '}
+                  <a
+                    href={DEFAULT_TRUST_CENTER_PROFILE_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-link-400 hover:underline"
+                  >
+                    {DEFAULT_TRUST_CENTER_PROFILE_DISPLAY}
+                  </a>
+                  .
+                </p>
+                <p className="mt-2">
+                  Prefer a branded URL? Contact support to get set up.
+                </p>
+              </>
+            ) : isReadyToPublish ? (
+              <p>
+                Publish your Trust Center draft to{' '}
+                <span className="font-medium text-link-400">{BRANDED_TRUST_CENTER_DISPLAY}</span>.
+              </p>
+            ) : null}
+          </div>
           <div className="mt-5 flex items-center gap-3">
-            <button
-              type="button"
-              className="rounded-md border border-primary-400 px-5 py-2 text-sm font-medium text-primary-800 shadow-sm transition-colors hover:bg-primary-100"
-            >
-              Contact Support
-            </button>
-            <button
-              type="button"
-              className="rounded-md bg-brand-400 px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-400"
-              onClick={onViewDraft}
-            >
-              View Draft
-            </button>
+            {isColdStart ? (
+              <>
+                <a
+                  href={DEFAULT_TRUST_CENTER_PROFILE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-md border border-primary-400 px-5 py-2 text-sm font-medium text-primary-800 shadow-sm transition-colors hover:bg-primary-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-link-400"
+                >
+                  Learn More
+                </a>
+                <a
+                  href="mailto:support@conveyor.com"
+                  className="rounded-md bg-brand-400 px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-400"
+                >
+                  Contact Support
+                </a>
+              </>
+            ) : isReadyToPublish ? (
+              <>
+                <a
+                  href={BRANDED_TRUST_CENTER_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-md border border-primary-400 px-5 py-2 text-sm font-medium text-primary-800 shadow-sm transition-colors hover:bg-primary-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-link-400"
+                >
+                  Learn More
+                </a>
+                <button
+                  type="button"
+                  className="rounded-md bg-brand-400 px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-400"
+                  onClick={() => setPublishModalOpen(true)}
+                >
+                  Publish Draft
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="rounded-md border border-primary-400 px-5 py-2 text-sm font-medium text-primary-800 shadow-sm transition-colors hover:bg-primary-100"
+                >
+                  Contact Support
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md bg-brand-400 px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-400"
+                  onClick={onViewDraft}
+                >
+                  View Draft
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
+      {publishModalOpen ? (
+        <PublishConfirmModal goLive onClose={() => setPublishModalOpen(false)} />
+      ) : null}
     </div>
   );
 }

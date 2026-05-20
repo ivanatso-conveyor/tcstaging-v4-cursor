@@ -11,7 +11,7 @@ const ANNOUNCEMENT_PAGE = 2;
 
 export default function AnnouncementsSection() {
   const copy = useTrustCenterCopy();
-  const { enabled, previewMode } = useTrustCenterSectionEdit();
+  const { enabled, previewMode, onSectionEdit } = useTrustCenterSectionEdit();
   const maxOffset = Math.max(0, announcements.length - ANNOUNCEMENT_PAGE);
   const [offset, setOffset] = useState(0);
   const [addOpen, setAddOpen] = useState(false);
@@ -35,7 +35,7 @@ export default function AnnouncementsSection() {
         enabled={enabled}
         previewMode={previewMode}
         publishedOverlay="none"
-        onEditClick={() => {}}
+        onEditClick={onSectionEdit}
       >
       <div className="flex items-center justify-between gap-4 mb-6">
         <h2

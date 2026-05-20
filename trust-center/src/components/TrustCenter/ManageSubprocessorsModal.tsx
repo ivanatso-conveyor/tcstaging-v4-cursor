@@ -11,6 +11,7 @@
 import { useState } from 'react';
 import { subprocessors } from '../../constants/data';
 import ManageListModal from './ManageListModal';
+import { subprocessorLogos } from './subprocessorLocalLogos';
 import UpdateSubprocessorModal from './UpdateSubprocessorModal';
 
 type Props = { onClose: () => void };
@@ -22,6 +23,7 @@ export default function ManageSubprocessorsModal({ onClose }: Props) {
   const items = subprocessors.map((s) => ({
     key: s.domain,
     label: s.name,
+    avatarSrc: subprocessorLogos[s.domain],
   }));
 
   return (
@@ -32,6 +34,7 @@ export default function ManageSubprocessorsModal({ onClose }: Props) {
         heading="Subprocessors"
         helper="Drag to reorder. Click the pencil to edit a subprocessor&rsquo;s details."
         items={items}
+        showAvatars
         onEdit={(item) => setEditingDomain(item.key)}
         onClose={onClose}
         nestedOpen={editingDomain !== null}

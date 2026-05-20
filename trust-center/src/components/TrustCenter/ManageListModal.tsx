@@ -22,6 +22,8 @@ export type ManageListModalItem = {
   key: string;
   /** Row label (also used in the Edit button's aria-label). */
   label: string;
+  /** Optional logo URL — shown when `showAvatars` is true (Trusted By list style). */
+  avatarSrc?: string;
 };
 
 type Props = {
@@ -30,6 +32,8 @@ type Props = {
   heading: string;
   helper: string;
   items: ManageListModalItem[];
+  /** When true, each row shows a 24×24 logo before the label (Featured Customers pattern). */
+  showAvatars?: boolean;
   /** Fired when the user clicks the pencil on a row. */
   onEdit: (item: ManageListModalItem) => void;
   onClose: () => void;
@@ -43,6 +47,7 @@ export default function ManageListModal({
   heading,
   helper,
   items,
+  showAvatars = false,
   onEdit,
   onClose,
   nestedOpen,
@@ -191,7 +196,27 @@ export default function ManageListModal({
                         <span className="shrink-0 text-primary-500" aria-hidden>
                           <FontAwesomeIcon icon={faGripLines} className="h-3.5 w-3.5" />
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-sm text-primary-800">
+                        {showAvatars ? (
+                          <div
+                            className="h-6 w-6 shrink-0 overflow-hidden rounded border border-grey-1 bg-primary-100"
+                            aria-hidden
+                          >
+                            {item.avatarSrc ? (
+                              <img
+                                src={item.avatarSrc}
+                                alt=""
+                                width={24}
+                                height={24}
+                                className="h-full w-full object-contain"
+                              />
+                            ) : (
+                              <span className="flex h-full w-full items-center justify-center bg-primary-300 text-[9px] font-bold text-primary-700">
+                                {item.label.charAt(0)}
+                              </span>
+                            )}
+                          </div>
+                        ) : null}
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-primary-700">
                           {item.label}
                         </span>
                         <button
