@@ -46,9 +46,6 @@ import ManageSubprocessorsModal from './ManageSubprocessorsModal';
 import ManageAnnouncementsModal from './ManageAnnouncementsModal';
 import ManageVideoResourcesModal from './ManageVideoResourcesModal';
 import ManageProductsModal from './ManageProductsModal';
-import NewAnnouncementModal from './NewAnnouncementModal';
-import NewVideoResourceModal from './NewVideoResourceModal';
-import AddProductModal from './AddProductModal';
 import type { EditableTrustSectionId } from '../../contexts/TrustCenterSectionEditContext';
 import { TrustCenterSectionEditProvider } from '../../contexts/TrustCenterSectionEditContext';
 
@@ -410,18 +407,12 @@ export default function TrustCenterContent({
               />
             ) : editSection === 'subprocessors' ? (
               <ManageSubprocessorsModal onClose={() => setEditSection(null)} />
-            ) : editSection === 'announcements' || editSection === 'announcements-update' ? (
+            ) : editSection === 'announcements' ? (
               <ManageAnnouncementsModal onClose={() => setEditSection(null)} />
-            ) : editSection === 'announcements-add' ? (
-              <NewAnnouncementModal onClose={() => setEditSection(null)} />
-            ) : editSection === 'what-we-offer' || editSection === 'what-we-offer-update' ? (
+            ) : editSection === 'what-we-offer' ? (
               <ManageProductsModal onClose={() => setEditSection(null)} />
-            ) : editSection === 'what-we-offer-add' ? (
-              <AddProductModal onClose={() => setEditSection(null)} />
-            ) : editSection === 'video-resources' || editSection === 'video-resources-update' ? (
+            ) : editSection === 'video-resources' ? (
               <ManageVideoResourcesModal onClose={() => setEditSection(null)} />
-            ) : editSection === 'video-resources-add' ? (
-              <NewVideoResourceModal onClose={() => setEditSection(null)} />
             ) : editSection ? (
               <EditSectionPlaceholderModal section={editSection} onClose={() => setEditSection(null)} />
             ) : null}
