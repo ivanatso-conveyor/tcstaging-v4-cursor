@@ -537,10 +537,11 @@ function PublishedEmptyStateIllustration() {
 }
 
 /**
- * Published-tab empty state when a draft exists but nothing is live yet (`Imagery/Empty State Spot Illustrations/done.png`).
+ * Published-tab empty state when a draft exists but nothing is live yet (`public/Imagery/ready-to-publish-done.png`).
+ * Stable path has no spaces so temp.md and GitHub Pages can serve the file reliably.
  */
 function ReadyToPublishIllustration() {
-  const src = `${import.meta.env.BASE_URL}Imagery/Empty%20State%20Spot%20Illustrations/done.png`;
+  const src = `${import.meta.env.BASE_URL}Imagery/ready-to-publish-done.png`;
   return (
     <img
       src={src}

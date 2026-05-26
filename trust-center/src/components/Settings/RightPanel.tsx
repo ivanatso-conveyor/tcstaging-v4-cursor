@@ -46,7 +46,7 @@ import { PublishLiveSuccessToast, PUBLISH_LIVE_SUCCESS_TOAST_DURATION_MS } from 
 import { UnpublishTrustCenterToast } from './UnpublishTrustCenterToast';
 import { DESIGNER_FEEDBACK_TOAST_DURATION_MS } from '../../constants/designerFeedbackToast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEye, faEyeSlash, faGripLines, faLink } from '@fortawesome/free-solid-svg-icons';
+import { faEye, faEyeSlash, faLink } from '@fortawesome/free-solid-svg-icons';
 import { getPublishedPresentation, useDesigner } from '../../context/DesignerContext';
 import type { StageablePresentation } from '../../types/staging';
 import { useTrustCenterCopy } from '../../hooks/useTrustCenterCopy';
@@ -2594,6 +2594,15 @@ function LocalizationSection() {
   );
 }
 
+/**
+ * Section Layout list rows: eye + label line up with the accordion title (`px-5`).
+ * The drag grip sits in the card’s left padding (`-ml-5` + absolute `w-5` gutter).
+ */
+const SECTION_LAYOUT_ROW_CLASS =
+  'group/row relative -ml-5 flex items-center gap-1 rounded-md py-2 pl-5 pr-2';
+const SECTION_LAYOUT_GRIP_GUTTER_CLASS =
+  'absolute left-0 top-1/2 flex w-5 -translate-y-1/2 items-center justify-center text-primary-400';
+
 function DropSlotPreview({
   insertBeforeIndex,
   draggingIndex,
@@ -2618,8 +2627,11 @@ function DropSlotPreview({
         onCommit(draggingIndex, insertBeforeIndex);
         onClear();
       }}
-      className="flex shrink-0 items-center gap-2 rounded-md border border-dashed border-primary-500 bg-primary-100/60 px-2 py-2"
+      className={`${SECTION_LAYOUT_ROW_CLASS} shrink-0 border border-dashed border-primary-500 bg-primary-100/60`}
     >
+      <span className={`${SECTION_LAYOUT_GRIP_GUTTER_CLASS} invisible`} aria-hidden>
+        <GripVertical size={14} />
+      </span>
       <span className="invisible shrink-0 p-0.5">
         <FontAwesomeIcon icon={faEye} className="right-panel-layout-row-icon" />
       </span>
@@ -2629,9 +2641,6 @@ function DropSlotPreview({
           <FontAwesomeIcon icon={faLink} className="right-panel-layout-row-icon" />
         </span>
       </div>
-      <span className="invisible shrink-0 p-0.5">
-        <FontAwesomeIcon icon={faGripLines} className="right-panel-layout-row-icon" />
-      </span>
     </div>
   );
 }
@@ -2708,16 +2717,18 @@ function FixedHeaderSections({ sectionVisibility, onToggle, noPublishedTC = fals
         const isRowVisible =
           visibilityId != null ? sectionVisibility[visibilityId] !== false : alwaysVisible;
         return (
-          <div
-            key={label}
-            className="group/row flex items-center gap-1 rounded-md py-2 pr-2"
-          >
-            {/* 6-dot grip — in the left gutter, visible on hover, disabled for fixed rows */}
-            <FixedSectionTooltip text="Section cannot be moved" position="right">
-              <span className="shrink-0 w-5 flex items-center justify-center text-primary-400 opacity-0 group-hover/row:opacity-100 transition-opacity cursor-not-allowed" aria-hidden>
-                <GripVertical size={14} />
-              </span>
-            </FixedSectionTooltip>
+          <div key={label} className={SECTION_LAYOUT_ROW_CLASS}>
+            {/* 6-dot grip — absolute gutter (tooltip must not wrap positioning; see page section rows) */}
+            <span
+              className={`${SECTION_LAYOUT_GRIP_GUTTER_CLASS} cursor-not-allowed opacity-0 transition-opacity group-hover/row:opacity-100`}
+              aria-hidden
+            >
+              <FixedSectionTooltip text="Section cannot be moved" position="right">
+                <span className="flex h-5 w-5 items-center justify-center">
+                  <GripVertical size={14} />
+                </span>
+              </FixedSectionTooltip>
+            </span>
             {/* Eye toggle */}
             {alwaysVisible ? (
               <FixedSectionTooltip text="Always visible" position="right">
@@ -2924,9 +2935,11 @@ function CustomizeLayoutSection({
       </button>
       {expanded && (
         <div className="px-5 pb-4">
-          <p className="mb-1 mt-1 pl-6 pr-2 text-[10px] font-medium uppercase tracking-wider text-primary-500">Header and Identity</p>
+          <p className="mb-1 mt-1 pr-2 text-[10px] font-medium uppercase tracking-wider text-primary-500">
+            Header and Identity
+          </p>
           <FixedHeaderSections sectionVisibility={sectionVisibility} onToggle={onToggle} noPublishedTC={noPublishedTC} onEditSection={onEditSection} />
-          <p className="mb-1 mt-3 pl-6 pr-2 text-[10px] font-medium uppercase tracking-wider text-primary-500">Page Sections</p>
+          <p className="mb-1 mt-3 pr-2 text-[10px] font-medium uppercase tracking-wider text-primary-500">Page Sections</p>
           <div
             ref={listRef}
             role="list"
@@ -2984,15 +2997,15 @@ function CustomizeLayoutSection({
                       clearDrag();
                     }}
                     onDragEnd={clearDrag}
-                    className={`group/row relative flex items-center gap-1 rounded-md py-2 pr-2 select-none transition-shadow ${
+                    className={`${SECTION_LAYOUT_ROW_CLASS} select-none transition-shadow ${
                       isDragging
                         ? 'z-10 cursor-grabbing bg-white shadow-[0_8px_24px_rgba(0,27,40,0.12)] ring-1 ring-primary-400'
                         : 'cursor-grab hover:bg-primary-100'
                     }`}
                   >
-                    {/* 6-dot grip — in the left gutter, visible on hover */}
+                    {/* 6-dot grip — left gutter (outside eye/label column) */}
                     <span
-                      className={`shrink-0 w-5 flex items-center justify-center text-primary-400 transition-opacity ${
+                      className={`${SECTION_LAYOUT_GRIP_GUTTER_CLASS} transition-opacity ${
                         isDragging ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
                       }`}
                       aria-hidden
